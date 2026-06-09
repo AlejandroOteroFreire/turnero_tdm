@@ -1,7 +1,18 @@
-import Link from 'next/link'
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Shield } from '@/components/ui/Shield'
 
 export default function PendientePage() {
+  const router = useRouter()
+  const supabase = createClient()
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center px-4 py-8 bg-club-black">
       <div className="w-full max-w-sm card text-center space-y-4">
@@ -11,12 +22,9 @@ export default function PendientePage() {
           Tu cuenta está siendo revisada por la administración del club.
           Recibirás una notificación cuando sea aprobada.
         </p>
-        <p className="text-xs text-gray-600">
-          Si ya pagaste la cuota, acercate al club para que vinculen tu DNI.
-        </p>
-        <Link href="/login" className="btn-ghost w-full text-xs">
-          Volver al inicio
-        </Link>
+        <button onClick={handleSignOut} className="btn-ghost w-full text-xs">
+          Cerrar sesión
+        </button>
       </div>
     </div>
   )
