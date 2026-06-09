@@ -62,7 +62,7 @@ BEGIN
             raw_user_meta_data, created_at, updated_at, aud, role
         ) VALUES (
             v_user_id, '00000000-0000-0000-0000-000000000000', v_email,
-            crypt('Ficticio123!', gen_salt('bf')),
+            crypt('password123', gen_salt('bf', 10)),
             CASE WHEN v_statuses[i] IN ('active','pending') THEN NOW() ELSE NULL END,
             jsonb_build_object('full_name', v_names[i]),
             NOW() - ((31 - i) * INTERVAL '1 day'),
