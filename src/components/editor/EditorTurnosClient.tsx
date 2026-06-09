@@ -9,6 +9,7 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  useDroppable,
 } from '@dnd-kit/core'
 import {
   SortableContext,
@@ -16,10 +17,11 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { DAY_LABELS } from '@/types'
 import type { TrainingSlot, SlotDay } from '@/types'
+import { SlotConfigPanel } from './SlotConfigPanel'
 
 interface Player { id: string; display_name: string; roles: string[] }
 interface Assignment { id: string; slot_id: string; player_id: string; position: number | null }
@@ -30,10 +32,12 @@ interface Props {
   weekStart:   string
 }
 
-export function EditorTurnosClient({ slots, players, assignments: initialAssignments, weekStart }: Props) {
+export function EditorTurnosClient({ slots: initialSlots, players, assignments: initialAssignments, weekStart }: Props) {
+  const [slots, setSlots] = useState<TrainingSlot[]>(initialSlots)
   const [assignments, setAssignments] = useState<Assignment[]>(initialAssignments)
   const [activePlayer, setActivePlayer] = useState<Player | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
+  const [tab, setTab] = useState<'asignar' | 'configurar'>('asignar')
   const supabase = createClient()
 
   const sensors = useSensors(
@@ -120,10 +124,40 @@ export function EditorTurnosClient({ slots, players, assignments: initialAssignm
   const sortedSlots = [...slots].sort((a, b) => dayOrder.indexOf(a.day_of_week) - dayOrder.indexOf(b.day_of_week))
 
   return (
+    <div className="space-y-4">
+      {/* Header + Tabs */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-xl font-bold text-white">Editor de turnos</h1>
+        <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
+          <button
+            onClick={() => setTab('asignar')}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              tab === 'asignar' ? 'bg-club-green text-white' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Asignar jugadores
+          </button>
+          <button
+            onClick={() => setTab('configurar')}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              tab === 'configurar' ? 'bg-club-green text-white' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Configurar turnos
+          </button>
+        </div>
+      </div>
+
+      {/* Tab: Configurar turnos */}
+      {tab === 'configurar' && (
+        <SlotConfigPanel slots={slots} onUpdate={setSlots} />
+      )}
+
+      {/* Tab: Asignar jugadores */}
+      {tab === 'asignar' && (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white">Editor de turnos</h1>
           <span className="text-xs text-gray-500 bg-white/5 px-2 py-1 rounded">Semana del {weekStart}</span>
         </div>
 
@@ -186,6 +220,8 @@ export function EditorTurnosClient({ slots, players, assignments: initialAssignm
         )}
       </DragOverlay>
     </DndContext>
+      )}
+    </div>
   )
 }
 
@@ -212,7 +248,7 @@ function PlayerChip({ player, saving }: { player: Player; saving: boolean }) {
 function SlotDropZone({ slot, players, saving, onRemove }: {
   slot: TrainingSlot; players: Player[]; saving: string | null; onRemove: (id: string) => void
 }) {
-  const { setNodeRef, isOver } = useSortable({ id: slot.id })
+  const { setNodeRef, isOver } = useDroppable({ id: slot.id })
 
   return (
     <div

@@ -83,7 +83,26 @@ export function DashboardShell({ account, children }: { account: Account; childr
             </span>
           </Link>
 
-          <div className="flex-1" />
+          {/* Nav links — desktop (ocultos en mobile, se usa la bottom nav) */}
+          <nav className="hidden sm:flex items-center gap-1 flex-1">
+            {navItems.map(item => {
+              const active = pathname.startsWith(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    active
+                      ? 'bg-club-green/20 text-club-green'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <span>{item.icon}</span>
+                  {item.label}
+                </Link>
+              )
+            })}
+          </nav>
 
           {/* Selector de rol dual */}
           <RoleSwitcher roles={roles} activeRole={activeRole} onChange={switchRole} />

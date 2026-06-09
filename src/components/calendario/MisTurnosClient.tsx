@@ -1,188 +1,268 @@
 'use client'
 
 import { useState } from 'react'
-import { format, parseISO, isToday, isTomorrow } from 'date-fns'
+import { addDays, format, parseISO, isToday } from 'date-fns'
 import { es } from 'date-fns/locale'
-import type { BookingStatus } from '@/types'
+import Link from 'next/link'
+import type { SlotInstanceAvailability, BookingStatus } from '@/types'
 
-// Tipos inferidos de la query anidada
-interface SlotInfo {
-  label: string | null
-  start_time: string
-  end_time: string
-  day_of_week?: string
+interface BookingMin {
+  id:           string
+  instance_id:  string
+  status:       BookingStatus
+  waitlist_pos: number | null
 }
-interface InstanceInfo {
-  id: string
-  date: string
-  status: string
-  training_slots: SlotInfo | null
-}
-interface BookingRow {
+interface HistoryRow {
   id: string
   status: BookingStatus
-  waitlist_pos: number | null
-  booked_at: string
   late_cancel: boolean
-  cancelled_at?: string | null
-  slot_instances: InstanceInfo | null
+  slot_instances: {
+    id: string
+    date: string
+    training_slots: { label: string | null; start_time: string; end_time: string } | null
+  } | null
 }
-
 interface Props {
-  upcoming: BookingRow[]
-  history:  BookingRow[]
-  userId:   string
+  weekStart:           string
+  thisWeekInstances:   SlotInstanceAvailability[]
+  thisWeekBookings:    BookingMin[]
+  futureInstances:     SlotInstanceAvailability[]
+  futureBookings:      BookingMin[]
+  history:             HistoryRow[]
+  userId:              string
 }
 
-const STATUS_CONFIG: Record<BookingStatus, { label: string; cls: string }> = {
-  confirmed:      { label: 'Confirmado',   cls: 'text-green-400'  },
-  waitlisted:     { label: 'En espera',    cls: 'text-amber-400'  },
-  cancelled:      { label: 'Cancelado',    cls: 'text-gray-500'   },
-  cancelled_late: { label: 'Cancel. tardía', cls: 'text-red-400'  },
-  no_show:        { label: 'No asistió',   cls: 'text-red-400'    },
+const STATUS_LABEL: Record<BookingStatus, string> = {
+  confirmed:      'Confirmado',
+  waitlisted:     'En espera',
+  cancelled:      'Cancelado',
+  cancelled_late: 'Cancelación tardía',
+  no_show:        'No asistió',
 }
 
-export function MisTurnosClient({ upcoming, history, userId }: Props) {
-  const [cancellingId, setCancellingId] = useState<string | null>(null)
-  const [localUpcoming, setLocalUpcoming] = useState(upcoming)
-  const [error, setError] = useState<string | null>(null)
+export function MisTurnosClient({
+  weekStart,
+  thisWeekInstances,
+  thisWeekBookings,
+  futureInstances,
+  futureBookings,
+  history,
+  userId,
+}: Props) {
+  const [bookings, setBookings]           = useState<BookingMin[]>(thisWeekBookings)
+  const [futBooked, setFutBooked]         = useState<BookingMin[]>(futureBookings)
+  const [cancellingId, setCancellingId]   = useState<string | null>(null)
+  const [errorMsg, setErrorMsg]           = useState<string | null>(null)
 
-  async function cancelBooking(bookingId: string) {
+  async function cancelBooking(bookingId: string, isFuture = false) {
     setCancellingId(bookingId)
-    setError(null)
+    setErrorMsg(null)
     try {
-      const res = await fetch(`/api/bookings/${bookingId}`, { method: 'DELETE' })
+      const res  = await fetch(`/api/bookings/${bookingId}`, { method: 'DELETE' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Error al cancelar')
-
-      setLocalUpcoming(prev => prev.filter(b => b.id !== bookingId))
-
+      if (isFuture) {
+        setFutBooked(prev => prev.filter(b => b.id !== bookingId))
+      } else {
+        setBookings(prev => prev.filter(b => b.id !== bookingId))
+      }
       if (data.late_cancel) {
-        setError('Cancelación registrada como tardía (menos de 2 hs antes del turno).')
+        setErrorMsg('Cancelación registrada como tardía (menos de 2 hs antes del turno).')
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Error')
+      setErrorMsg(e instanceof Error ? e.message : 'Error')
     } finally {
       setCancellingId(null)
     }
   }
 
-  function formatSlotDate(date: string): string {
-    const d = parseISO(date)
-    if (isToday(d))    return 'Hoy'
-    if (isTomorrow(d)) return 'Mañana'
-    return format(d, "EEEE d 'de' MMMM", { locale: es })
-  }
+  // Mapa instanceId → booking
+  const bookingMap = Object.fromEntries(bookings.map(b => [b.instance_id, b]))
+  const futMap     = Object.fromEntries(futBooked.map(b => [b.instance_id, b]))
 
-  function slotLabel(b: BookingRow): string {
-    const s = b.slot_instances?.training_slots
-    if (!s) return 'Turno'
-    return s.label ?? `${s.start_time.slice(0, 5)}–${s.end_time.slice(0, 5)}`
-  }
+  // Días de la semana actual (Lun–Sáb)
+  const days = Array.from({ length: 6 }, (_, i) => {
+    const date    = addDays(parseISO(weekStart), i)
+    const dateStr = format(date, 'yyyy-MM-dd')
+    const insts   = thisWeekInstances.filter(inst => inst.date === dateStr)
+    return { date, dateStr, insts }
+  })
+
+  // Reservas futuras agrupadas por semana
+  const futWithBooking = futureInstances
+    .filter(i => futMap[i.instance_id])
+    .map(i => ({ instance: i, booking: futMap[i.instance_id] }))
+
+  const myBookingsTotal = bookings.length + futBooked.length
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-white">Mis turnos</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-white">Mis turnos</h1>
+        <Link href="/calendario" className="btn-secondary text-xs py-1.5 px-3">
+          + Reservar turno
+        </Link>
+      </div>
 
-      {error && (
+      {errorMsg && (
         <div className="rounded-lg bg-amber-900/30 border border-amber-700/50 px-3 py-2 text-sm text-amber-300">
-          {error}
+          {errorMsg}
         </div>
       )}
 
-      {/* Próximas reservas */}
+      {/* ── Semana actual ── */}
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-          Próximas reservas
-          <span className="ml-2 text-gray-600 normal-case">({localUpcoming.length})</span>
+          Semana actual
+          <span className="ml-2 text-gray-600 normal-case font-normal">
+            {format(parseISO(weekStart), "d 'de' MMMM", { locale: es })}
+          </span>
         </h2>
 
-        {localUpcoming.length === 0 && (
-          <div className="card text-center py-8 text-gray-500 text-sm">
-            No tenés reservas próximas.{' '}
-            <a href="/calendario" className="text-club-green hover:underline">Reservar turno</a>
-          </div>
-        )}
+        <div className="space-y-2">
+          {days.map(({ date, dateStr, insts }) => {
+            // Sólo mostrar días donde tengo turno O donde hay turnos disponibles
+            const myInsts = insts.filter(i => bookingMap[i.instance_id])
+            if (myInsts.length === 0) return null
 
-        {localUpcoming.map(booking => {
-          const inst   = booking.slot_instances
-          const date   = inst?.date ?? ''
-          const isLate = inst?.status === 'active'
-            ? false
-            : false  // el servidor evalúa la cancelación tardía
-
-          return (
-            <div key={booking.id} className="card flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-semibold text-white text-sm">
-                  {slotLabel(booking)}
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5 capitalize">
-                  {formatSlotDate(date)}
-                  {' · '}
-                  {inst?.training_slots?.start_time.slice(0, 5)}–{inst?.training_slots?.end_time.slice(0, 5)}
-                </p>
-                {booking.status === 'waitlisted' && (
-                  <span className="text-xs text-amber-400 mt-0.5 block">
-                    Lista de espera #{booking.waitlist_pos}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <span className={`text-xs font-medium ${STATUS_CONFIG[booking.status].cls}`}>
-                  {STATUS_CONFIG[booking.status].label}
-                </span>
-                <button
-                  onClick={() => cancelBooking(booking.id)}
-                  disabled={cancellingId === booking.id}
-                  className="text-xs text-gray-600 hover:text-red-400 transition-colors px-2 py-1 rounded hover:bg-red-900/20"
-                  title="Cancelar reserva"
-                >
-                  {cancellingId === booking.id ? '…' : '✕'}
-                </button>
-              </div>
-            </div>
-          )
-        })}
-      </section>
-
-      {/* Historial */}
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-          Historial — últimas 8 semanas
-        </h2>
-
-        {history.length === 0 && (
-          <div className="card text-center py-6 text-gray-600 text-sm">
-            Sin historial todavía.
-          </div>
-        )}
-
-        <div className="space-y-1">
-          {history.map(booking => {
-            const inst = booking.slot_instances
-            const date = inst?.date ?? ''
             return (
-              <div
-                key={booking.id}
-                className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/5 transition-colors"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm text-white truncate">{slotLabel(booking)}</p>
-                  <p className="text-xs text-gray-500 capitalize">
-                    {format(parseISO(date), "EEEE d/MM", { locale: es })}
-                  </p>
+              <div key={dateStr}>
+                <p className={`text-xs font-medium mb-1 capitalize ${isToday(date) ? 'text-club-green' : 'text-gray-500'}`}>
+                  {isToday(date) ? '▸ Hoy — ' : ''}{format(date, "EEEE d/MM", { locale: es })}
+                </p>
+                <div className="space-y-1.5">
+                  {myInsts.map(inst => {
+                    const b = bookingMap[inst.instance_id]
+                    return (
+                      <BookingCard
+                        key={inst.instance_id}
+                        instance={inst}
+                        booking={b}
+                        onCancel={id => cancelBooking(id, false)}
+                        cancelling={cancellingId === b.id}
+                      />
+                    )
+                  })}
                 </div>
-                <span className={`text-xs font-medium shrink-0 ml-3 ${STATUS_CONFIG[booking.status].cls}`}>
-                  {STATUS_CONFIG[booking.status].label}
-                  {booking.late_cancel && <span className="text-red-500 ml-1">·tarde</span>}
-                </span>
               </div>
             )
           })}
+
+          {bookings.length === 0 && (
+            <div className="card text-center py-8 space-y-2">
+              <p className="text-gray-500 text-sm">No tenés turnos reservados esta semana.</p>
+              <Link href="/calendario" className="text-club-green text-sm hover:underline">
+                Ver turnos disponibles →
+              </Link>
+            </div>
+          )}
         </div>
       </section>
+
+      {/* ── Próximas semanas ── */}
+      {futWithBooking.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
+            Próximas semanas
+            <span className="ml-2 text-gray-600 normal-case font-normal">({futWithBooking.length})</span>
+          </h2>
+          <div className="space-y-1.5">
+            {futWithBooking.map(({ instance, booking }) => (
+              <BookingCard
+                key={instance.instance_id}
+                instance={instance}
+                booking={booking}
+                onCancel={id => cancelBooking(id, true)}
+                cancelling={cancellingId === booking.id}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Historial ── */}
+      {history.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
+            Historial — últimas 8 semanas
+          </h2>
+          <div className="divide-y divide-white/5">
+            {history.map(b => {
+              const inst = b.slot_instances
+              const slot = inst?.training_slots
+              return (
+                <div key={b.id} className="flex items-center justify-between py-2 px-1 gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-white truncate">
+                      {slot?.label ?? `${slot?.start_time.slice(0,5)}–${slot?.end_time.slice(0,5)}`}
+                    </p>
+                    <p className="text-xs text-gray-500 capitalize">
+                      {inst?.date ? format(parseISO(inst.date), "EEEE d/MM", { locale: es }) : ''}
+                    </p>
+                  </div>
+                  <span className={`text-xs font-medium shrink-0 ${
+                    b.status === 'confirmed' ? 'text-green-400' :
+                    b.status === 'no_show' || b.status === 'cancelled_late' ? 'text-red-400' :
+                    'text-gray-500'
+                  }`}>
+                    {STATUS_LABEL[b.status]}
+                    {b.late_cancel && <span className="text-red-500 ml-1">·tardía</span>}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+    </div>
+  )
+}
+
+// ── Sub-componente: card de una reserva ──
+function BookingCard({
+  instance, booking, onCancel, cancelling,
+}: {
+  instance:   SlotInstanceAvailability
+  booking:    BookingMin
+  onCancel:   (id: string) => void
+  cancelling: boolean
+}) {
+  const isCancelled = instance.instance_status === 'cancelled'
+  const label = instance.label ?? `${instance.start_time.slice(0,5)}–${instance.end_time.slice(0,5)}`
+
+  return (
+    <div className={`card flex items-center justify-between gap-3 ${isCancelled ? 'opacity-50' : ''}`}>
+      <div className="min-w-0">
+        <p className="font-semibold text-white text-sm truncate">{label}</p>
+        <p className="text-xs text-gray-400 mt-0.5">
+          {instance.start_time.slice(0,5)}–{instance.end_time.slice(0,5)}
+          {isCancelled && <span className="text-red-400 ml-2">· Turno cancelado</span>}
+        </p>
+        {booking.status === 'waitlisted' && (
+          <span className="text-xs text-amber-400 mt-0.5 block">
+            Lista de espera #{booking.waitlist_pos}
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3 shrink-0">
+        <span className={`text-xs font-medium ${
+          booking.status === 'confirmed'  ? 'text-green-400' :
+          booking.status === 'waitlisted' ? 'text-amber-400' : 'text-gray-500'
+        }`}>
+          {booking.status === 'confirmed' ? '✓ Confirmado' : '⏳ En espera'}
+        </span>
+        {!isCancelled && (
+          <button
+            onClick={() => onCancel(booking.id)}
+            disabled={cancelling}
+            className="text-xs text-gray-600 hover:text-red-400 transition-colors px-2 py-1 rounded hover:bg-red-900/20"
+            title="Cancelar reserva"
+          >
+            {cancelling ? '…' : 'Cancelar'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

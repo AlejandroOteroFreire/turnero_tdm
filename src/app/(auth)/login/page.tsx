@@ -23,9 +23,24 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      router.push(next)
+
+      // Si hay un ?next explícito lo respetamos; si no, redirigimos según rol
+      if (searchParams.get('next')) {
+        router.push(next)
+      } else {
+        const { data: account } = await supabase
+          .from('user_accounts')
+          .select('roles')
+          .eq('id', data.user.id)
+          .single()
+        const roles: string[] = account?.roles ?? []
+        const destination = roles.includes('admin') || roles.includes('collaborator')
+          ? '/jugadores'
+          : '/mis-turnos'
+        router.push(destination)
+      }
       router.refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión')

@@ -4,13 +4,27 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
-  // Usar URL interna Docker para llamadas server-side (middleware corre en el container)
-  // NEXT_PUBLIC_SUPABASE_URL = http://localhost:54321 no es accesible desde dentro del container
-  const supabaseUrl = process.env.SUPABASE_INTERNAL_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL!
+  // IMPORTANTE: usar NEXT_PUBLIC_SUPABASE_URL como "supabaseUrl" para que el nombre
+  // de la cookie coincida con el que genera el browser client (sb-localhost-auth-token).
+  // Para los requests HTTP reales usamos SUPABASE_INTERNAL_URL (kong:8000) vía custom fetch,
+  // ya que desde dentro del container "localhost:54321" no es accesible.
+  const publicUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const internalUrl = process.env.SUPABASE_INTERNAL_URL ?? publicUrl
+
+  const internalFetch: typeof fetch = (url, init) => {
+    const rewritten = typeof url === 'string'
+      ? url.replace(publicUrl, internalUrl)
+      : url instanceof URL
+        ? new URL(url.toString().replace(publicUrl, internalUrl))
+        : url
+    return fetch(rewritten, init)
+  }
+
   const supabase = createServerClient(
-    supabaseUrl,
+    publicUrl,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: { fetch: internalFetch },
       cookies: {
         getAll() {
           return request.cookies.getAll()
@@ -41,10 +55,11 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirigir usuarios autenticados fuera del login
+  // Redirigir usuarios autenticados fuera del login/register
   if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
+    // El login page ya maneja la redirección por rol; aquí solo aplica si llegan directo
     const url = request.nextUrl.clone()
-    url.pathname = '/calendario'
+    url.pathname = '/jugadores'
     return NextResponse.redirect(url)
   }
 
