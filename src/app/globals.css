@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --club-black: #111111;
+    --club-green: #1E7A34;
+    --club-white: #FFFFFF;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-club-black text-white;
+    min-height: 100dvh;
+  }
+
+  /* Scrollbar oscuro */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #1E7A34 #222;
+  }
+  *::-webkit-scrollbar { width: 6px; height: 6px; }
+  *::-webkit-scrollbar-track { background: #222; }
+  *::-webkit-scrollbar-thumb { background: #1E7A34; border-radius: 3px; }
+}
+
+@layer components {
+  /* Botón primario verde */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-club-green px-4 py-2.5
+           text-sm font-semibold text-white shadow
+           hover:bg-green-700 active:scale-95
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-150;
+  }
+
+  /* Botón secundario borde verde */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-club-green px-4 py-2.5
+           text-sm font-semibold text-club-green
+           hover:bg-club-green hover:text-white active:scale-95
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-150;
+  }
+
+  /* Botón fantasma */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5
+           text-sm font-semibold text-gray-300
+           hover:bg-white/10 active:scale-95
+           transition-all duration-150;
+  }
+
+  /* Card base */
+  .card {
+    @apply rounded-xl bg-white/5 border border-white/10 p-4;
+  }
+
+  /* Input base */
+  .input {
+    @apply w-full rounded-lg bg-white/10 border border-white/20 px-3 py-2.5
+           text-sm text-white placeholder:text-gray-500
+           focus:outline-none focus:border-club-green focus:ring-1 focus:ring-club-green
+           transition-colors;
+  }
+
+  /* Label */
+  .label {
+    @apply block text-xs font-medium text-gray-400 mb-1;
+  }
+
+  /* Semáforo de pago */
+  .badge-current  { @apply inline-flex items-center gap-1 rounded-full bg-green-900/50 px-2 py-0.5 text-xs font-medium text-green-400; }
+  .badge-month    { @apply inline-flex items-center gap-1 rounded-full bg-amber-900/50 px-2 py-0.5 text-xs font-medium text-amber-400; }
+  .badge-previous { @apply inline-flex items-center gap-1 rounded-full bg-red-900/50 px-2 py-0.5 text-xs font-medium text-red-400; }
+
+  /* Escudo con banda diagonal */
+  .shield-diagonal {
+    @apply relative overflow-hidden;
+    background: linear-gradient(
+      135deg,
+      #1E7A34 0%, #1E7A34 42%,
+      #FFFFFF 42%, #FFFFFF 58%,
+      #1E7A34 58%, #1E7A34 100%
+    );
+  }
+}

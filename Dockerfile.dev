@@ -1,0 +1,14 @@
+FROM node:20-alpine
+WORKDIR /app
+
+# Instalar dependencias primero (cacheado mientras package.json no cambie)
+COPY package*.json ./
+RUN npm install
+
+# El resto del código se monta como volumen en dev
+# así que no hace falta COPY . .
+
+EXPOSE 3000
+ENV NEXT_TELEMETRY_DISABLED=1
+
+CMD ["npm", "run", "dev"]
