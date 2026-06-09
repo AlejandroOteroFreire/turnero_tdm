@@ -15,6 +15,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .single()
 
   if (!account) {
+    // Sesión sin cuenta en DB (puede pasar tras un reset): cerrar sesión y mandar a login
+    await supabase.auth.signOut()
     redirect('/login')
   }
 

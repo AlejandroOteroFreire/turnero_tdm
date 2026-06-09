@@ -55,12 +55,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirigir usuarios autenticados fuera del login/register
-  if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/calendario'
-    return NextResponse.redirect(url)
-  }
+  // No redirigir desde login/register — la página de login maneja eso
 
   return supabaseResponse
 }
