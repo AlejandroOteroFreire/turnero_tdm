@@ -26,22 +26,18 @@ export default function LoginPage() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
 
-      // Si hay un ?next explícito lo respetamos; si no, redirigimos según rol
-      if (searchParams.get('next')) {
-        router.push(next)
-      } else {
-        const { data: account } = await supabase
-          .from('user_accounts')
-          .select('roles')
-          .eq('id', data.user.id)
-          .single()
-        const roles: string[] = account?.roles ?? []
-        const destination = roles.includes('admin') || roles.includes('collaborator')
-          ? '/jugadores'
-          : '/calendario'
-        router.push(destination)
-      }
-      router.refresh()
+      // Navegación completa (no router.push) para que el servidor
+      // lea la cookie de sesión nueva correctamente
+      const { data: account } = await supabase
+        .from('user_accounts')
+        .select('roles')
+        .eq('id', data.user.id)
+        .single()
+      const roles: string[] = account?.roles ?? []
+      const destination = searchParams.get('next')
+        ?? (roles.includes('admin') || roles.includes('collaborator') ? '/jugadores' : '/calendario')
+
+      window.location.href = destination
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión')
     } finally {
