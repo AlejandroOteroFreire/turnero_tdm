@@ -111,6 +111,7 @@ BEGIN
             WHERE sa.slot_id = v_instance.slot_id
               AND sa.valid_from <= v_instance.date
               AND (sa.valid_until IS NULL OR sa.valid_until >= v_instance.date)
+            ORDER BY sa.valid_from ASC, sa.created_at ASC  -- determinista: primero asignados, primero confirmados
         LOOP
             SELECT COUNT(*) INTO v_confirmed
             FROM bookings
