@@ -21,16 +21,16 @@ DECLARE
 BEGIN
     -- Insertar en auth.users
     INSERT INTO auth.users (
-        id, email, encrypted_password, email_confirmed_at,
+        id, instance_id, email, encrypted_password, email_confirmed_at,
         raw_user_meta_data, created_at, updated_at,
         aud, role
     ) VALUES
-    (v_admin_id,    'admin@newbery.com',        crypt('Admin123!',    gen_salt('bf')), NOW(), '{"full_name":"Admin Newbery"}'::jsonb,      NOW(), NOW(), 'authenticated', 'authenticated'),
-    (v_profe_id,    'profe@newbery.com',         crypt('Profe123!',    gen_salt('bf')), NOW(), '{"full_name":"Profesor Carlos Vera"}'::jsonb, NOW(), NOW(), 'authenticated', 'authenticated'),
-    (v_colab_id,    'colaborador@newbery.com',   crypt('Colab123!',    gen_salt('bf')), NOW(), '{"full_name":"María González"}'::jsonb,      NOW(), NOW(), 'authenticated', 'authenticated'),
-    (v_jugador1_id, 'jugador1@newbery.com',      crypt('Jugador123!',  gen_salt('bf')), NOW(), '{"full_name":"Lucas Rodríguez"}'::jsonb,      NOW(), NOW(), 'authenticated', 'authenticated'),
-    (v_jugador2_id, 'jugador2@newbery.com',      crypt('Jugador123!',  gen_salt('bf')), NOW(), '{"full_name":"Sofía Martínez"}'::jsonb,       NOW(), NOW(), 'authenticated', 'authenticated'),
-    (v_jugador3_id, 'jugador3@newbery.com',      crypt('Jugador123!',  gen_salt('bf')), NOW(), '{"full_name":"Tomás Fernández"}'::jsonb,      NOW(), NOW(), 'authenticated', 'authenticated')
+    (v_admin_id,    '00000000-0000-0000-0000-000000000000', 'admin@newbery.com',       crypt('Admin123!',   gen_salt('bf')), NOW(), '{"full_name":"Admin Newbery"}'::jsonb,       NOW(), NOW(), 'authenticated', 'authenticated'),
+    (v_profe_id,    '00000000-0000-0000-0000-000000000000', 'profe@newbery.com',        crypt('Profe123!',   gen_salt('bf')), NOW(), '{"full_name":"Profesor Carlos Vera"}'::jsonb, NOW(), NOW(), 'authenticated', 'authenticated'),
+    (v_colab_id,    '00000000-0000-0000-0000-000000000000', 'colaborador@newbery.com',  crypt('Colab123!',   gen_salt('bf')), NOW(), '{"full_name":"María González"}'::jsonb,       NOW(), NOW(), 'authenticated', 'authenticated'),
+    (v_jugador1_id, '00000000-0000-0000-0000-000000000000', 'jugador1@newbery.com',     crypt('Jugador123!', gen_salt('bf')), NOW(), '{"full_name":"Lucas Rodríguez"}'::jsonb,      NOW(), NOW(), 'authenticated', 'authenticated'),
+    (v_jugador2_id, '00000000-0000-0000-0000-000000000000', 'jugador2@newbery.com',     crypt('Jugador123!', gen_salt('bf')), NOW(), '{"full_name":"Sofía Martínez"}'::jsonb,       NOW(), NOW(), 'authenticated', 'authenticated'),
+    (v_jugador3_id, '00000000-0000-0000-0000-000000000000', 'jugador3@newbery.com',     crypt('Jugador123!', gen_salt('bf')), NOW(), '{"full_name":"Tomás Fernández"}'::jsonb,      NOW(), NOW(), 'authenticated', 'authenticated')
     ON CONFLICT (id) DO NOTHING;
 
     -- user_accounts (el trigger los crea, pero en seed los sobrescribimos con los datos correctos)
