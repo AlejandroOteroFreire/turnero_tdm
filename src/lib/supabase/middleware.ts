@@ -57,9 +57,8 @@ export async function updateSession(request: NextRequest) {
 
   // Redirigir usuarios autenticados fuera del login/register
   if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
-    // El login page ya maneja la redirección por rol; aquí solo aplica si llegan directo
     const url = request.nextUrl.clone()
-    url.pathname = '/jugadores'
+    url.pathname = '/calendario'
     return NextResponse.redirect(url)
   }
 

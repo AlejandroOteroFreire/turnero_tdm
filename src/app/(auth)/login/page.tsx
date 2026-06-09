@@ -38,7 +38,7 @@ export default function LoginPage() {
         const roles: string[] = account?.roles ?? []
         const destination = roles.includes('admin') || roles.includes('collaborator')
           ? '/jugadores'
-          : '/mis-turnos'
+          : '/calendario'
         router.push(destination)
       }
       router.refresh()
