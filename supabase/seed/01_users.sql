@@ -20,17 +20,19 @@ DECLARE
     v_jugador3_id   UUID := '00000000-0000-0000-0000-000000000006';
 BEGIN
     -- Insertar en auth.users
+    -- Contraseña única para todos: password123
+    -- (bcrypt cost 10, compatible con GoTrue v2)
     INSERT INTO auth.users (
         id, instance_id, email, encrypted_password, email_confirmed_at,
         raw_user_meta_data, created_at, updated_at,
         aud, role
     ) VALUES
-    (v_admin_id,    '00000000-0000-0000-0000-000000000000', 'admin@newbery.com',       crypt('Admin123!',   gen_salt('bf')), NOW(), '{"full_name":"Admin Newbery"}'::jsonb,       NOW(), NOW(), 'authenticated', 'authenticated'),
-    (v_profe_id,    '00000000-0000-0000-0000-000000000000', 'profe@newbery.com',        crypt('Profe123!',   gen_salt('bf')), NOW(), '{"full_name":"Profesor Carlos Vera"}'::jsonb, NOW(), NOW(), 'authenticated', 'authenticated'),
-    (v_colab_id,    '00000000-0000-0000-0000-000000000000', 'colaborador@newbery.com',  crypt('Colab123!',   gen_salt('bf')), NOW(), '{"full_name":"María González"}'::jsonb,       NOW(), NOW(), 'authenticated', 'authenticated'),
-    (v_jugador1_id, '00000000-0000-0000-0000-000000000000', 'jugador1@newbery.com',     crypt('Jugador123!', gen_salt('bf')), NOW(), '{"full_name":"Lucas Rodríguez"}'::jsonb,      NOW(), NOW(), 'authenticated', 'authenticated'),
-    (v_jugador2_id, '00000000-0000-0000-0000-000000000000', 'jugador2@newbery.com',     crypt('Jugador123!', gen_salt('bf')), NOW(), '{"full_name":"Sofía Martínez"}'::jsonb,       NOW(), NOW(), 'authenticated', 'authenticated'),
-    (v_jugador3_id, '00000000-0000-0000-0000-000000000000', 'jugador3@newbery.com',     crypt('Jugador123!', gen_salt('bf')), NOW(), '{"full_name":"Tomás Fernández"}'::jsonb,      NOW(), NOW(), 'authenticated', 'authenticated')
+    (v_admin_id,    '00000000-0000-0000-0000-000000000000', 'admin@newbery.com',       crypt('password123', gen_salt('bf', 10)), NOW(), '{"full_name":"Admin Newbery"}'::jsonb,       NOW(), NOW(), 'authenticated', 'authenticated'),
+    (v_profe_id,    '00000000-0000-0000-0000-000000000000', 'profe@newbery.com',        crypt('password123', gen_salt('bf', 10)), NOW(), '{"full_name":"Profesor Carlos Vera"}'::jsonb, NOW(), NOW(), 'authenticated', 'authenticated'),
+    (v_colab_id,    '00000000-0000-0000-0000-000000000000', 'colaborador@newbery.com',  crypt('password123', gen_salt('bf', 10)), NOW(), '{"full_name":"María González"}'::jsonb,       NOW(), NOW(), 'authenticated', 'authenticated'),
+    (v_jugador1_id, '00000000-0000-0000-0000-000000000000', 'jugador1@newbery.com',     crypt('password123', gen_salt('bf', 10)), NOW(), '{"full_name":"Lucas Rodríguez"}'::jsonb,      NOW(), NOW(), 'authenticated', 'authenticated'),
+    (v_jugador2_id, '00000000-0000-0000-0000-000000000000', 'jugador2@newbery.com',     crypt('password123', gen_salt('bf', 10)), NOW(), '{"full_name":"Sofía Martínez"}'::jsonb,       NOW(), NOW(), 'authenticated', 'authenticated'),
+    (v_jugador3_id, '00000000-0000-0000-0000-000000000000', 'jugador3@newbery.com',     crypt('password123', gen_salt('bf', 10)), NOW(), '{"full_name":"Tomás Fernández"}'::jsonb,      NOW(), NOW(), 'authenticated', 'authenticated')
     ON CONFLICT (id) DO NOTHING;
 
     -- user_accounts (el trigger los crea, pero en seed los sobrescribimos con los datos correctos)
@@ -48,10 +50,6 @@ BEGIN
         dni = EXCLUDED.dni,
         phone = EXCLUDED.phone,
         wa_opt_in = EXCLUDED.wa_opt_in;
-
-    -- Passwords: 'password123' (bcrypt cost 10, compatible con GoTrue v2)
-    UPDATE auth.users SET encrypted_password = crypt('password123', gen_salt('bf', 10))
-    WHERE id IN (v_admin_id, v_profe_id, v_colab_id, v_jugador1_id, v_jugador2_id, v_jugador3_id);
 
     -- Identities para login email/password (requerido por GoTrue v2)
     -- provider_id debe ser el UUID del usuario (no el email)
