@@ -14,8 +14,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .eq('id', user.id)
     .single()
 
-  if (!account || account.status === 'pre_registered') {
-    redirect('/pendiente')
+  if (!account) {
+    redirect('/login')
   }
 
   return (
