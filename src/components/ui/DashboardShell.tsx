@@ -17,13 +17,13 @@ interface Account {
 }
 
 const NAV_PLAYER = [
-  { href: '/calendario',   label: 'Calendario',   icon: '📅' },
-  { href: '/mis-turnos',   label: 'Mis turnos',   icon: '🏓' },
-  { href: '/preferencias', label: 'Preferencias', icon: '🔔' },
+  { href: '/calendario', label: 'Turnos',  icon: '📅' },
+  { href: '/mi-plan',    label: 'Mi Plan', icon: '📋' },
 ]
 
 const NAV_ADMIN = [
   { href: '/jugadores',     label: 'Jugadores',    icon: '👥' },
+  { href: '/solicitudes',   label: 'Solicitudes',  icon: '📋' },
   { href: '/asistencia',    label: 'Asistencia',   icon: '✅' },
   { href: '/pagos',         label: 'Pagos',        icon: '💵' },
   { href: '/editor-turnos', label: 'Editor',       icon: '🔧' },
@@ -31,10 +31,11 @@ const NAV_ADMIN = [
 ]
 
 const NAV_COLLAB = [
-  { href: '/calendario',   label: 'Calendario',   icon: '📅' },
-  { href: '/jugadores',    label: 'Jugadores',    icon: '👥' },
-  { href: '/asistencia',   label: 'Asistencia',   icon: '✅' },
-  { href: '/pagos',        label: 'Pagos',        icon: '💵' },
+  { href: '/calendario',  label: 'Turnos',     icon: '📅' },
+  { href: '/mi-plan',     label: 'Mi Plan',    icon: '📋' },
+  { href: '/jugadores',   label: 'Jugadores',  icon: '👥' },
+  { href: '/asistencia',  label: 'Asistencia', icon: '✅' },
+  { href: '/pagos',       label: 'Pagos',      icon: '💵' },
 ]
 
 export function DashboardShell({ account, children }: { account: Account; children: React.ReactNode }) {
