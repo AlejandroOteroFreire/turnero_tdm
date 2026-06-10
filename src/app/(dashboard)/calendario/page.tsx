@@ -9,12 +9,11 @@ export default async function CalendarioPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 7 días corridos desde hoy, saltando domingos
+  // 8 semanas corridas desde hoy (56 días), saltando domingos en el cliente
   const now   = toZonedTime(new Date(), TZ)
   const today = format(now, 'yyyy-MM-dd')
 
-  // Recolectamos hasta 9 días para asegurarnos de cubrir 7 sin domingos
-  const rangeEnd = format(addDays(now, 9), 'yyyy-MM-dd')
+  const rangeEnd = format(addDays(now, 58), 'yyyy-MM-dd') // +2 buffer para domingos
 
   const { data: instances } = await supabase
     .from('slot_instance_availability')

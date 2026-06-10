@@ -4,4 +4,4 @@
 \i seed/03_slots.sql
 \i seed/04_payments.sql
 \i seed/05_config.sql
-\i seed/06_plans.sql
+\i seed/07_registration_requests.sql

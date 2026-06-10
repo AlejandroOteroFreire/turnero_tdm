@@ -33,10 +33,12 @@ export function MiPlanClient({ userId, assignments, requests, allSlots }: Props)
     return from <= today && (until === null || until >= today)
   })
 
-  const sortedActive = [...activeAssignments].sort((a, b) =>
-    (DAY_ORDER[a.training_slots.day_of_week] - DAY_ORDER[b.training_slots.day_of_week]) ||
-    a.training_slots.start_time.localeCompare(b.training_slots.start_time)
-  )
+  const sortedActive = [...activeAssignments]
+    .filter(a => a.training_slots !== null)
+    .sort((a, b) =>
+      (DAY_ORDER[a.training_slots.day_of_week] - DAY_ORDER[b.training_slots.day_of_week]) ||
+      a.training_slots.start_time.localeCompare(b.training_slots.start_time)
+    )
 
   const pendingRequest = requests.find(r => r.status === 'pending')
 
@@ -337,9 +339,11 @@ export function MiPlanClient({ userId, assignments, requests, allSlots }: Props)
                     {a.training_slots.start_time.slice(0,5)} – {a.training_slots.end_time.slice(0,5)}
                   </p>
                 </div>
-                <span className="text-xs text-gray-600 shrink-0">
-                  Cap. {a.training_slots.capacity}
-                </span>
+                {a.training_slots.label && (
+                  <span className="text-xs text-gray-500 shrink-0">
+                    {a.training_slots.label}
+                  </span>
+                )}
               </div>
             ))}
           </div>

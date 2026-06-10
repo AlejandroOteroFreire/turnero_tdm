@@ -18,6 +18,12 @@
     min-height: 100dvh;
   }
 
+  /* Select nativo — fondo oscuro para que sea legible */
+  select, select option {
+    background-color: #1c1c1c;
+    color: #ffffff;
+  }
+
   /* Scrollbar oscuro */
   * {
     scrollbar-width: thin;

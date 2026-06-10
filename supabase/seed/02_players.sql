@@ -84,11 +84,33 @@ BEGIN
 
         -- player_profiles (solo para activos y pending, no pre_registered sin user)
         IF v_statuses[i] IN ('active', 'pending') THEN
-            INSERT INTO player_profiles (user_id, full_name, dni, frequency, joined_at)
+            INSERT INTO player_profiles (
+                user_id, full_name, dni, frequency, joined_at,
+                name, lastname, nickname, birth_date, locality,
+                phone_whatsapp, tmt_code, fetemba_code
+            )
             VALUES (
                 v_user_id, v_names[i], v_dnis[i], v_freqs[i],
-                CURRENT_DATE - (31 - i)
-            ) ON CONFLICT (user_id) DO NOTHING;
+                CURRENT_DATE - (31 - i),
+                split_part(v_names[i], ' ', 1),
+                split_part(v_names[i], ' ', 2),
+                CASE WHEN i % 5 = 0 THEN split_part(v_names[i], ' ', 1) || 'ito' ELSE NULL END,
+                CASE WHEN i % 3 = 0 THEN (CURRENT_DATE - ((25 + i) * 365))
+                     ELSE NULL END,
+                (ARRAY[
+                    'Córdoba Capital','Buenos Aires','Rosario','Mendoza','La Plata',
+                    'Córdoba Capital','San Luis','Tucumán','Salta','Mar del Plata'
+                ])[((i - 1) % 10) + 1],
+                v_phone,
+                CASE WHEN i <= 15 THEN 'TMT-' || LPAD(i::TEXT, 5, '0') ELSE NULL END,
+                CASE WHEN i % 4 = 0 THEN 'FET-' || LPAD((1000 + i)::TEXT, 4, '0') ELSE NULL END
+            ) ON CONFLICT (user_id) DO UPDATE SET
+                name           = EXCLUDED.name,
+                lastname       = EXCLUDED.lastname,
+                locality       = EXCLUDED.locality,
+                phone_whatsapp = EXCLUDED.phone_whatsapp,
+                tmt_code       = EXCLUDED.tmt_code,
+                fetemba_code   = EXCLUDED.fetemba_code;
         END IF;
     END LOOP;
 

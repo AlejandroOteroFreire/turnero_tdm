@@ -6,13 +6,13 @@ export type UserRole = 'player' | 'collaborator' | 'admin'
 export type AccountStatus = 'active' | 'pending' | 'pre_registered' | 'suspended'
 export type SlotDay = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'
 export type BookingStatus = 'confirmed' | 'waitlisted' | 'cancelled' | 'cancelled_late' | 'no_show'
-export type BookingType = 'auto' | 'manual_extra' | 'manual_cancel_recovery'
-export type PlanChangeStatus = 'pending' | 'approved' | 'rejected'
 export type InstanceStatus = 'active' | 'cancelled' | 'holiday'
 export type OfferStatus = 'pending' | 'accepted' | 'rejected' | 'expired'
 export type PaymentStatus = 'current' | 'owes_month' | 'owes_previous'
 export type NotificationChannel = 'whatsapp' | 'whatsapp_group' | 'web_push' | 'email'
 export type AttendanceStatus = 'present' | 'absent' | 'cancelled' | 'cancelled_late' | 'no_show'
+export type RegistrationRequestStatus = 'pending' | 'approved' | 'rejected'
+export type PlanChangeStatus = 'pending' | 'approved' | 'rejected'
 
 export interface UserAccount {
   id: string
@@ -73,7 +73,6 @@ export interface Booking {
   instance_id: string
   player_id: string
   status: BookingStatus
-  type: BookingType
   waitlist_pos: number | null
   booked_at: string
   cancelled_at: string | null
@@ -193,40 +192,42 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   owes_previous: 'Debe meses anteriores',
 }
 
-export interface SlotAssignment {
-  id: string
-  player_id: string
-  slot_id: string
-  valid_from: string   // 'YYYY-MM-DD'
-  valid_until: string | null
-  created_at: string
+export interface RegistrationRequest {
+  id:             string
+  player_id:      string
+  days_per_week:  number
+  option_a:       string[]
+  option_b:       string[]
+  status:         RegistrationRequestStatus
+  assigned_slots: string[] | null
+  reviewed_by:    string | null
+  reviewed_at:    string | null
+  admin_notes:    string | null
+  created_at:     string
 }
 
-export interface SlotAssignmentWithSlot extends SlotAssignment {
-  training_slots: {
-    id: string
-    day_of_week: SlotDay
-    start_time: string
-    end_time: string
-    label: string | null
-    capacity: number
-  }
+export interface RegistrationRequestWithDetails extends RegistrationRequest {
+  user_accounts?: { display_name: string; email: string; dni: string | null }
+}
+
+export interface SlotAssignment {
+  id:          string
+  player_id:   string
+  slot_id:     string
+  valid_from:  string
+  valid_until: string | null
+  created_at:  string
 }
 
 export interface PlanChangeRequest {
-  id: string
-  player_id: string
-  slots_to_drop: string[]
-  slots_to_add: string[]
+  id:                string
+  player_id:         string
+  slots_to_drop:     string[]
+  slots_to_add:      string[]
   proposed_start_date: string
-  status: PlanChangeStatus
-  reviewed_by: string | null
-  reviewed_at: string | null
-  admin_notes: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface PlanChangeRequestWithDetails extends PlanChangeRequest {
-  user_accounts?: { display_name: string; avatar_url: string | null }
+  status:            PlanChangeStatus
+  reviewed_by:       string | null
+  reviewed_at:       string | null
+  admin_notes:       string | null
+  created_at:        string
 }

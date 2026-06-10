@@ -42,26 +42,26 @@ BEGIN
     -- --------------------------------------------------------
     INSERT INTO training_slots (id, day_of_week, start_time, end_time, capacity, label, created_by) VALUES
     -- Lunes
-    (v_lun_1, 'monday',    '16:30', '18:30', 8,  'Lunes 16:30',     v_admin_id),
-    (v_lun_2, 'monday',    '18:30', '20:15', 8,  'Lunes 18:30',     v_admin_id),
-    (v_lun_3, 'monday',    '20:15', '22:00', 8,  'Lunes 20:15',     v_admin_id),
+    (v_lun_1, 'monday',    '16:30', '18:30', 12, 'Lunes 16:30',     v_admin_id),
+    (v_lun_2, 'monday',    '18:30', '20:15', 12, 'Lunes 18:30',     v_admin_id),
+    (v_lun_3, 'monday',    '20:15', '22:00', 12, 'Lunes 20:15',     v_admin_id),
     -- Martes
-    (v_mar_1, 'tuesday',   '16:30', '18:30', 8,  'Martes 16:30',    v_admin_id),
-    (v_mar_2, 'tuesday',   '18:30', '20:15', 8,  'Martes 18:30',    v_admin_id),
-    (v_mar_3, 'tuesday',   '20:15', '22:00', 8,  'Martes 20:15',    v_admin_id),
+    (v_mar_1, 'tuesday',   '16:30', '18:30', 12, 'Martes 16:30',    v_admin_id),
+    (v_mar_2, 'tuesday',   '18:30', '20:15', 12, 'Martes 18:30',    v_admin_id),
+    (v_mar_3, 'tuesday',   '20:15', '22:00', 12, 'Martes 20:15',    v_admin_id),
     -- Miércoles
-    (v_mie_1, 'wednesday', '16:30', '18:30', 8,  'Miércoles 16:30', v_admin_id),
-    (v_mie_2, 'wednesday', '18:30', '20:15', 8,  'Miércoles 18:30', v_admin_id),
-    (v_mie_3, 'wednesday', '20:15', '22:00', 8,  'Miércoles 20:15', v_admin_id),
+    (v_mie_1, 'wednesday', '16:30', '18:30', 12, 'Miércoles 16:30', v_admin_id),
+    (v_mie_2, 'wednesday', '18:30', '20:15', 12, 'Miércoles 18:30', v_admin_id),
+    (v_mie_3, 'wednesday', '20:15', '22:00', 12, 'Miércoles 20:15', v_admin_id),
     -- Jueves
-    (v_jue_1, 'thursday',  '16:30', '18:30', 8,  'Jueves 16:30',    v_admin_id),
-    (v_jue_2, 'thursday',  '18:30', '20:15', 8,  'Jueves 18:30',    v_admin_id),
-    (v_jue_3, 'thursday',  '20:15', '22:00', 8,  'Jueves 20:15',    v_admin_id),
+    (v_jue_1, 'thursday',  '16:30', '18:30', 12, 'Jueves 16:30',    v_admin_id),
+    (v_jue_2, 'thursday',  '18:30', '20:15', 12, 'Jueves 18:30',    v_admin_id),
+    (v_jue_3, 'thursday',  '20:15', '22:00', 12, 'Jueves 20:15',    v_admin_id),
     -- Viernes
-    (v_vie_1, 'friday',    '17:00', '19:00', 8,  'Viernes 17:00',   v_admin_id),
+    (v_vie_1, 'friday',    '17:00', '19:00', 12, 'Viernes 17:00',   v_admin_id),
     -- Sábado
-    (v_sab_1, 'saturday',  '10:00', '11:30', 8,  'Sábado 10:00',    v_admin_id),
-    (v_sab_2, 'saturday',  '11:30', '13:30', 12, 'Sábado 11:30',    v_admin_id)
+    (v_sab_1, 'saturday',  '10:00', '11:30', 12, 'Sábado 10:00',    v_admin_id),
+    (v_sab_2, 'saturday',  '11:30', '13:30', 12, 'Sábado 11:30',   v_admin_id)
     ON CONFLICT (id) DO NOTHING;
 
     -- Jugadores activos para el historial de reservas

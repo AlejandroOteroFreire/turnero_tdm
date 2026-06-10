@@ -473,7 +473,7 @@ CREATE OR REPLACE FUNCTION cancel_booking(
     p_cancelled_by UUID,
     p_late BOOLEAN DEFAULT FALSE
 )
-RETURNS VOID AS $$
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
     v_instance_id UUID;
     v_was_confirmed BOOLEAN;
@@ -484,10 +484,13 @@ BEGIN
     WHERE id = p_booking_id;
 
     UPDATE bookings SET
-        status = CASE WHEN p_late THEN 'cancelled_late' ELSE 'cancelled' END,
+        status       = CASE WHEN p_late
+                            THEN 'cancelled_late'::booking_status
+                            ELSE 'cancelled'::booking_status
+                       END,
         cancelled_at = NOW(),
         cancelled_by = p_cancelled_by,
-        late_cancel = p_late,
+        late_cancel  = p_late,
         waitlist_pos = NULL
     WHERE id = p_booking_id;
 

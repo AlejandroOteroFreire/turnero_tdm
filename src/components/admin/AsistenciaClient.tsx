@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { AttendanceStatus } from '@/types'
 
@@ -28,6 +29,7 @@ const ATTEND_OPTIONS: { value: AttendanceStatus; label: string; cls: string }[] 
 
 export function AsistenciaClient({ instances, bookings, attendance: initialAttendance, today }: Props) {
   const supabase = createClient()
+  const router   = useRouter()
   const [selectedInstance, setSelectedInstance] = useState<string | null>(
     instances.length === 1 ? instances[0].id : null
   )
@@ -83,7 +85,18 @@ export function AsistenciaClient({ instances, bookings, attendance: initialAtten
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold text-white">Asistencia — {today}</h1>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <h1 className="text-xl font-bold text-white">Asistencia — {today}</h1>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-400">Fecha:</label>
+          <input
+            type="date"
+            className="input text-sm py-1.5"
+            value={today}
+            onChange={e => router.push(`/asistencia?fecha=${e.target.value}`)}
+          />
+        </div>
+      </div>
 
       {instances.length === 0 && (
         <div className="card text-center py-8 text-gray-500 text-sm">

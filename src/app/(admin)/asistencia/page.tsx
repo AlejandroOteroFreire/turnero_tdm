@@ -5,22 +5,30 @@ import { format } from 'date-fns'
 
 const TZ = 'America/Argentina/Buenos_Aires'
 
-export default async function AsistenciaPage() {
+export default async function AsistenciaPage({
+  searchParams,
+}: {
+  searchParams: { fecha?: string }
+}) {
   const supabase = createClient()
   const today    = format(toZonedTime(new Date(), TZ), 'yyyy-MM-dd')
+  const fecha    = searchParams.fecha ?? today
 
-  // Instancias de hoy con sus reservas confirmadas
+  // Validar formato de fecha
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+  const selectedDate = dateRegex.test(fecha) ? fecha : today
+
+  // Instancias de la fecha seleccionada con sus reservas confirmadas
   const { data: instances } = await supabase
     .from('slot_instances')
     .select(`
       id, date, status,
       training_slots ( id, label, start_time, end_time, capacity )
     `)
-    .eq('date', today)
+    .eq('date', selectedDate)
     .eq('status', 'active')
     .order('training_slots(start_time)')
 
-  // Para cada instancia, traer reservas + asistencia ya marcada
   const instanceIds = (instances ?? []).map(i => i.id)
 
   const [{ data: bookings }, { data: attendance }] = await Promise.all([
@@ -45,7 +53,7 @@ export default async function AsistenciaPage() {
       instances={instances ?? []}
       bookings={bookings ?? []}
       attendance={attendance ?? []}
-      today={today}
+      today={selectedDate}
     />
   )
 }

@@ -4,32 +4,52 @@ import { SolicitudesClient } from '@/components/admin/SolicitudesClient'
 export default async function SolicitudesPage() {
   const supabase = createClient()
 
-  const [
-    { data: requests },
-    { data: allSlots },
-    { data: config },
-  ] = await Promise.all([
-    supabase
-      .from('plan_change_requests')
-      .select('*, user_accounts(display_name, avatar_url)')
-      .order('created_at', { ascending: false })
-      .limit(50),
-    supabase
-      .from('training_slots')
-      .select('id, day_of_week, start_time, end_time, label')
-      .eq('is_active', true),
-    supabase
-      .from('app_config')
-      .select('value')
-      .eq('key', 'auto_approve_plan_change')
-      .single(),
-  ])
+  // Obtener registration_requests pendientes con datos del jugador
+  const { data: registrationRequests } = await supabase
+    .from('registration_requests')
+    .select(`
+      *,
+      user_accounts!player_id ( display_name, email, dni )
+    `)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+
+  // Obtener plan_change_requests pendientes con datos del jugador
+  const { data: planChangeRequests } = await supabase
+    .from('plan_change_requests')
+    .select(`
+      *,
+      user_accounts!player_id ( display_name, email )
+    `)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+
+  // Obtener todos los training_slots activos para mostrar nombres en las opciones
+  const { data: slots } = await supabase
+    .from('training_slots')
+    .select('*')
+    .eq('is_active', true)
+    .order('day_of_week')
+    .order('start_time')
+
+  // Conteo de slot_assignments activos por slot (para ver disponibilidad)
+  const today = new Date().toISOString().split('T')[0]
+  const { data: assignmentCounts } = await supabase
+    .from('slot_assignments')
+    .select('slot_id')
+    .or(`valid_until.is.null,valid_until.gte.${today}`)
+
+  const assignCountMap: Record<string, number> = {}
+  for (const a of assignmentCounts ?? []) {
+    assignCountMap[a.slot_id] = (assignCountMap[a.slot_id] ?? 0) + 1
+  }
 
   return (
     <SolicitudesClient
-      requests={requests ?? []}
-      allSlots={allSlots ?? []}
-      autoApprove={config?.value === 'true'}
+      registrationRequests={registrationRequests ?? []}
+      planChangeRequests={planChangeRequests ?? []}
+      slots={slots ?? []}
+      assignCountMap={assignCountMap}
     />
   )
 }

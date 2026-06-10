@@ -8,103 +8,104 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCorners,
+  closestCenter,
+  useDraggable,
   useDroppable,
 } from '@dnd-kit/core'
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { DAY_LABELS } from '@/types'
 import type { TrainingSlot, SlotDay } from '@/types'
 import { SlotConfigPanel } from './SlotConfigPanel'
 
-interface Player { id: string; display_name: string; roles: string[] }
-interface Assignment { id: string; slot_id: string; player_id: string; position: number | null }
+interface Player     { id: string; display_name: string; roles: string[] }
+interface Assignment { id: string; slot_id: string; player_id: string; valid_from: string; valid_until: string | null }
 interface Props {
   slots:       TrainingSlot[]
   players:     Player[]
   assignments: Assignment[]
-  weekStart:   string
+  today:       string
 }
 
-export function EditorTurnosClient({ slots: initialSlots, players, assignments: initialAssignments, weekStart }: Props) {
-  const [slots, setSlots] = useState<TrainingSlot[]>(initialSlots)
+const DAY_ORDER: SlotDay[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+
+export function EditorTurnosClient({ slots: initialSlots, players, assignments: initialAssignments, today }: Props) {
+  const supabase = createClient()
+
+  const [slots,       setSlots]       = useState<TrainingSlot[]>(initialSlots)
   const [assignments, setAssignments] = useState<Assignment[]>(initialAssignments)
   const [activePlayer, setActivePlayer] = useState<Player | null>(null)
-  const [saving, setSaving] = useState<string | null>(null)
-  const [tab, setTab] = useState<'asignar' | 'configurar'>('asignar')
-  const supabase = createClient()
+  const [saving,      setSaving]      = useState<string | null>(null)
+  const [tab,         setTab]         = useState<'asignar' | 'configurar'>('asignar')
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   )
 
-  // Jugadores no asignados en ningún slot esta semana
-  const assignedPlayerIds = new Set(assignments.map(a => a.player_id))
-  const unassigned = players.filter(p => !assignedPlayerIds.has(p.id))
+  const sortedSlots    = [...slots].sort((a, b) => DAY_ORDER.indexOf(a.day_of_week) - DAY_ORDER.indexOf(b.day_of_week))
+  const daysWithSlots  = DAY_ORDER.filter(d => sortedSlots.some(s => s.day_of_week === d))
+  const [selectedDay, setSelectedDay] = useState<SlotDay>(daysWithSlots[0] ?? 'monday')
+
+  const selectedDaySlots = sortedSlots.filter(s => s.day_of_week === selectedDay)
+
+  // Sin asignar = jugadores sin turno en el día seleccionado
+  const assignedInDay = new Set(
+    assignments
+      .filter(a => selectedDaySlots.some(s => s.id === a.slot_id))
+      .map(a => a.player_id)
+  )
+  const unassigned = players.filter(p => !assignedInDay.has(p.id))
 
   function getSlotPlayers(slotId: string): Player[] {
     return assignments
       .filter(a => a.slot_id === slotId)
-      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
       .map(a => players.find(p => p.id === a.player_id)!)
       .filter(Boolean)
   }
 
   function handleDragStart({ active }: DragStartEvent) {
-    const player = players.find(p => p.id === active.id)
-    setActivePlayer(player ?? null)
+    setActivePlayer(players.find(p => p.id === active.id) ?? null)
   }
 
   async function handleDragEnd({ active, over }: DragEndEvent) {
     setActivePlayer(null)
     if (!over) return
 
-    const playerId  = active.id as string
-    const targetId  = over.id as string
+    const playerId = active.id as string
+    const targetId = over.id as string
 
-    // targetId puede ser: slotId (drop en slot vacío) o otro playerId (swap)
+    // Drop en "unassigned" → quitar del slot (soft-delete)
+    if (targetId === 'unassigned') {
+      const prev = assignments.find(a => a.player_id === playerId && selectedDaySlots.some(s => s.id === a.slot_id))
+      if (!prev) return
+      await softRemove(prev)
+      return
+    }
+
+    // Drop en un slot
     const targetSlot = slots.find(s => s.id === targetId)
-    const targetSlotByPlayer = assignments.find(a => a.player_id === targetId)
+    if (!targetSlot) return
 
-    const slotId = targetSlot?.id ?? targetSlotByPlayer?.slot_id
+    // Ya está en ese slot → noop
+    if (assignments.find(a => a.player_id === playerId && a.slot_id === targetId)) return
 
-    if (!slotId) return
-
-    // Verificar si ya está en ese slot
-    const existing = assignments.find(a => a.player_id === playerId && a.slot_id === slotId)
-    if (existing) return
-
-    // Quitar de slot anterior si tenía
-    const prevAssignment = assignments.find(a => a.player_id === playerId)
+    // Quitar del slot anterior en este día (si lo tenía)
+    const prev = assignments.find(a => a.player_id === playerId && selectedDaySlots.some(s => s.id === a.slot_id))
 
     setSaving(playerId)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (prev) await softRemove(prev)
 
-      // Eliminar asignación previa
-      if (prevAssignment) {
-        await supabase.from('slot_assignments').delete().eq('id', prevAssignment.id)
-      }
-
-      // Crear nueva asignación
-      const position = assignments.filter(a => a.slot_id === slotId).length + 1
-      const { data: newAssignment } = await supabase
+      const { data: newA, error } = await supabase
         .from('slot_assignments')
-        .insert({ slot_id: slotId, player_id: playerId, week_start: weekStart, position, assigned_by: user.id })
+        .insert({ slot_id: targetId, player_id: playerId, valid_from: today })
         .select()
         .single()
 
-      if (newAssignment) {
+      if (!error && newA) {
         setAssignments(prev => [
-          ...prev.filter(a => a.player_id !== playerId),
-          newAssignment as Assignment,
+          ...prev.filter(a => !(a.player_id === playerId && selectedDaySlots.some(s => s.id === a.slot_id))),
+          newA as Assignment,
         ])
       }
     } finally {
@@ -112,16 +113,25 @@ export function EditorTurnosClient({ slots: initialSlots, players, assignments: 
     }
   }
 
-  async function removeFromSlot(playerId: string) {
-    const assignment = assignments.find(a => a.player_id === playerId)
-    if (!assignment) return
-    await supabase.from('slot_assignments').delete().eq('id', assignment.id)
-    setAssignments(prev => prev.filter(a => a.player_id !== playerId))
+  async function softRemove(assignment: Assignment) {
+    // Calcula ayer respecto a valid_from o today
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = yesterday.toISOString().split('T')[0]
+
+    await supabase
+      .from('slot_assignments')
+      .update({ valid_until: yesterdayStr })
+      .eq('id', assignment.id)
+
+    setAssignments(prev => prev.filter(a => a.id !== assignment.id))
   }
 
-  // Ordenar slots por día de la semana
-  const dayOrder: SlotDay[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-  const sortedSlots = [...slots].sort((a, b) => dayOrder.indexOf(a.day_of_week) - dayOrder.indexOf(b.day_of_week))
+  async function removeFromSlot(playerId: string) {
+    const a = assignments.find(a => a.player_id === playerId && selectedDaySlots.some(s => s.id === a.slot_id))
+    if (!a) return
+    await softRemove(a)
+  }
 
   return (
     <div className="space-y-4">
@@ -148,87 +158,107 @@ export function EditorTurnosClient({ slots: initialSlots, players, assignments: 
         </div>
       </div>
 
-      {/* Tab: Configurar turnos */}
-      {tab === 'configurar' && (
-        <SlotConfigPanel slots={slots} onUpdate={setSlots} />
-      )}
+      {tab === 'configurar' && <SlotConfigPanel slots={slots} onUpdate={setSlots} />}
 
-      {/* Tab: Asignar jugadores */}
       {tab === 'asignar' && (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500 bg-white/5 px-2 py-1 rounded">Semana del {weekStart}</span>
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-gray-500">
+              Arrastrá jugadores hacia un turno para asignarlos, o de vuelta al panel "Sin asignar" para quitarlos.
+            </p>
 
-        <p className="text-xs text-gray-500">
-          Arrastrá los jugadores desde el panel izquierdo a los turnos de la grilla.
-        </p>
+            {/* Selector de día */}
+            <div className="flex flex-wrap gap-1.5">
+              {daysWithSlots.map(day => (
+                <button
+                  key={day}
+                  onClick={() => setSelectedDay(day)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    selectedDay === day
+                      ? 'bg-club-green text-white'
+                      : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                  }`}
+                >
+                  {DAY_LABELS[day]}
+                </button>
+              ))}
+            </div>
 
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {/* Panel de jugadores no asignados */}
-          <div className="shrink-0 w-48">
-            <h3 className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">Sin asignar</h3>
-            <SortableContext items={unassigned.map(p => p.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-1 min-h-[80px] rounded-lg border border-dashed border-white/10 p-2">
-                {unassigned.map(player => (
-                  <PlayerChip key={player.id} player={player} saving={saving === player.id} />
-                ))}
-                {unassigned.length === 0 && (
-                  <p className="text-xs text-gray-600 text-center py-4">Todos asignados</p>
+            {/* Vista del día seleccionado */}
+            <div className="flex gap-4 items-start">
+              {/* Panel izquierdo: jugadores sin turno en este día */}
+              <UnassignedPanel players={unassigned} saving={saving} />
+
+              {/* Turnos del día */}
+              <div className="flex gap-3 flex-1 flex-wrap">
+                {selectedDaySlots.length === 0 && (
+                  <p className="text-sm text-gray-500">No hay turnos para este día.</p>
                 )}
+                {selectedDaySlots.map(slot => (
+                  <SlotDropZone
+                    key={slot.id}
+                    slot={slot}
+                    players={getSlotPlayers(slot.id)}
+                    saving={saving}
+                    onRemove={removeFromSlot}
+                  />
+                ))}
               </div>
-            </SortableContext>
+            </div>
           </div>
 
-          {/* Grilla de slots por día */}
-          <div className="flex gap-3 min-w-0">
-            {dayOrder.map(day => {
-              const daySlots = sortedSlots.filter(s => s.day_of_week === day)
-              if (daySlots.length === 0) return null
-              return (
-                <div key={day} className="w-44 shrink-0">
-                  <h3 className="text-xs font-semibold text-club-green mb-2 uppercase tracking-wide">
-                    {DAY_LABELS[day]}
-                  </h3>
-                  <div className="space-y-2">
-                    {daySlots.map(slot => {
-                      const slotPlayers = getSlotPlayers(slot.id)
-                      return (
-                        <SlotDropZone
-                          key={slot.id}
-                          slot={slot}
-                          players={slotPlayers}
-                          saving={saving}
-                          onRemove={removeFromSlot}
-                        />
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      <DragOverlay>
-        {activePlayer && (
-          <div className="bg-club-green text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg opacity-90">
-            {activePlayer.display_name}
-          </div>
-        )}
-      </DragOverlay>
-    </DndContext>
+          <DragOverlay dropAnimation={null}>
+            {activePlayer && (
+              <div className="bg-club-green text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg">
+                {activePlayer.display_name}
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
       )}
     </div>
   )
 }
 
-// ---- Componente: Chip de jugador arrastrable ----
+// ---- Panel de jugadores sin asignar (droppable) ----
+function UnassignedPanel({ players, saving }: { players: Player[]; saving: string | null }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'unassigned' })
+
+  return (
+    <div className="shrink-0 w-48">
+      <h3 className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">
+        Sin asignar
+      </h3>
+      <div
+        ref={setNodeRef}
+        className={`space-y-1 min-h-[100px] rounded-lg border border-dashed p-2 transition-colors ${
+          isOver ? 'border-red-500/50 bg-red-900/10' : 'border-white/10'
+        }`}
+      >
+        {players.map(player => (
+          <PlayerChip key={player.id} player={player} saving={saving === player.id} />
+        ))}
+        {players.length === 0 && (
+          <p className="text-xs text-gray-600 text-center py-4">Todos asignados</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---- Chip de jugador arrastrable (useDraggable) ----
 function PlayerChip({ player, saving }: { player: Player; saving: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: player.id })
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: player.id })
+  const style: React.CSSProperties = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    opacity:   isDragging ? 0.4 : 1,
+    zIndex:    isDragging ? 999 : undefined,
+  }
 
   return (
     <div
@@ -244,7 +274,35 @@ function PlayerChip({ player, saving }: { player: Player; saving: boolean }) {
   )
 }
 
-// ---- Componente: Zona de drop de slot ----
+// ---- Badge de ocupación ----
+function OccupancyBadge({ count, capacity }: { count: number; capacity: number }) {
+  const pct = capacity > 0 ? count / capacity : 0
+
+  let label: string
+  let style: React.CSSProperties
+
+  if (count > capacity) {
+    label = 'Sobre cupo'
+    style = { backgroundColor: '#7F1D1D', color: '#FFFFFF', border: '1px solid #EF4444' }
+  } else if (count === capacity) {
+    label = 'Completo'
+    style = { backgroundColor: '#3A1A1A', color: '#F87171' }
+  } else if (pct >= 0.8) {
+    label = 'Casi lleno'
+    style = { backgroundColor: '#2A1F00', color: '#D97706' }
+  } else {
+    label = 'Con lugar'
+    style = { backgroundColor: '#1A3A22', color: '#4ADE80' }
+  }
+
+  return (
+    <span style={{ ...style, borderRadius: 99, padding: '2px 10px', fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap' }}>
+      {label}
+    </span>
+  )
+}
+
+// ---- Zona de drop del slot (useDroppable) ----
 function SlotDropZone({ slot, players, saving, onRemove }: {
   slot: TrainingSlot; players: Player[]; saving: string | null; onRemove: (id: string) => void
 }) {
@@ -253,27 +311,33 @@ function SlotDropZone({ slot, players, saving, onRemove }: {
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-lg border p-2 min-h-[80px] transition-all ${
+      className={`rounded-lg border p-2 min-h-[80px] w-44 transition-all ${
         isOver ? 'border-club-green bg-club-green/10' : 'border-white/10 bg-white/5'
       }`}
     >
-      <p className="text-[10px] text-gray-500 mb-1.5 truncate">
-        {slot.start_time.slice(0, 5)}–{slot.end_time.slice(0, 5)}
-        <span className="ml-1 text-gray-600">({players.length}/{slot.capacity})</span>
-      </p>
+      <div className="flex items-center justify-between gap-1 mb-1.5">
+        <span className="text-[10px] text-gray-500">
+          {slot.start_time.slice(0, 5)}–{slot.end_time.slice(0, 5)}
+          <span className="ml-1 text-gray-600">({players.length}/{slot.capacity})</span>
+        </span>
+        <OccupancyBadge count={players.length} capacity={slot.capacity} />
+      </div>
       <div className="space-y-1">
         {players.map(player => (
           <div key={player.id} className="flex items-center justify-between gap-1 group">
             <PlayerChip player={player} saving={saving === player.id} />
             <button
               onClick={() => onRemove(player.id)}
-              className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition-all"
-              title="Quitar"
+              className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition-all shrink-0"
+              title="Quitar del turno"
             >
               ✕
             </button>
           </div>
         ))}
+        {players.length === 0 && isOver && (
+          <p className="text-[10px] text-club-green text-center py-2">Soltar aquí</p>
+        )}
       </div>
     </div>
   )

@@ -27,7 +27,7 @@ const NAV_ADMIN = [
   { href: '/asistencia',    label: 'Asistencia',   icon: '✅' },
   { href: '/pagos',         label: 'Pagos',        icon: '💵' },
   { href: '/editor-turnos', label: 'Editor',       icon: '🔧' },
-  { href: '/estadisticas',  label: 'Estadísticas', icon: '📊' },
+  { href: '/configuracion', label: 'Config',       icon: '⚙️' },
 ]
 
 const NAV_COLLAB = [
@@ -43,6 +43,8 @@ export function DashboardShell({ account, children }: { account: Account; childr
   const router   = useRouter()
   const supabase = createClient()
   const roles    = account.roles as UserRole[]
+
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const [activeRole, setActiveRole] = useState<UserRole>(() => {
     if (typeof window !== 'undefined') {
@@ -108,21 +110,61 @@ export function DashboardShell({ account, children }: { account: Account; childr
           {/* Selector de rol dual */}
           <RoleSwitcher roles={roles} activeRole={activeRole} onChange={switchRole} />
 
-          {/* Avatar / logout */}
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
-            title="Cerrar sesión"
-          >
-            {account.avatar_url ? (
-              <img src={account.avatar_url} alt="" className="w-7 h-7 rounded-full" />
-            ) : (
-              <span className="w-7 h-7 rounded-full bg-club-green/30 flex items-center justify-center text-xs font-bold text-club-green">
-                {account.display_name[0].toUpperCase()}
-              </span>
+          {/* Avatar / menú usuario */}
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen(o => !o)}
+              className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              {account.avatar_url ? (
+                <img src={account.avatar_url} alt="" className="w-7 h-7 rounded-full" />
+              ) : (
+                <span className="w-7 h-7 rounded-full bg-club-green/30 flex items-center justify-center text-xs font-bold text-club-green">
+                  {account.display_name[0].toUpperCase()}
+                </span>
+              )}
+              <span className="hidden sm:block truncate max-w-[120px]">{account.display_name}</span>
+              <span className="text-xs text-gray-600 hidden sm:block">▾</span>
+            </button>
+
+            {menuOpen && (
+              <>
+                {/* Overlay para cerrar al hacer clic afuera */}
+                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 w-44 rounded-xl bg-gray-900 border border-white/10 shadow-xl z-50 overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-white/10">
+                    <p className="text-xs font-semibold text-white truncate">{account.display_name}</p>
+                    <p className="text-[11px] text-gray-500">
+                      {activeRole === 'admin' ? 'Administrador' : activeRole === 'collaborator' ? 'Colaborador' : 'Jugador'}
+                    </p>
+                  </div>
+                  <div className="py-1">
+                    <Link
+                      href="/perfil"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                    >
+                      <span>👤</span> Perfil
+                    </Link>
+                    <Link
+                      href="/preferencias"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                    >
+                      <span>⚙️</span> Preferencias
+                    </Link>
+                    <div className="border-t border-white/10 my-1" />
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 transition-colors"
+                    >
+                      <span>🚪</span> Salir
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
-            <span className="hidden sm:block truncate max-w-[120px]">{account.display_name}</span>
-          </button>
+          </div>
         </div>
       </header>
 

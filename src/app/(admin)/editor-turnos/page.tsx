@@ -1,15 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { EditorTurnosClient } from '@/components/editor/EditorTurnosClient'
-import { startOfWeek, addDays, format } from 'date-fns'
+import { format } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
 
 const TZ = 'America/Argentina/Buenos_Aires'
 
 export default async function EditorTurnosPage() {
-  const supabase  = createClient()
-  const now       = toZonedTime(new Date(), TZ)
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
-  const weekStr   = format(weekStart, 'yyyy-MM-dd')
+  const supabase = createClient()
+  const today    = format(toZonedTime(new Date(), TZ), 'yyyy-MM-dd')
 
   const [{ data: slots }, { data: players }, { data: assignments }] = await Promise.all([
     supabase
@@ -24,10 +22,12 @@ export default async function EditorTurnosPage() {
       .contains('roles', ['player'])
       .eq('status', 'active')
       .order('display_name'),
+    // Asignaciones activas: valid_from <= hoy AND (valid_until IS NULL OR valid_until >= hoy)
     supabase
       .from('slot_assignments')
-      .select('*')
-      .eq('week_start', weekStr),
+      .select('id, player_id, slot_id, valid_from, valid_until')
+      .lte('valid_from', today)
+      .or(`valid_until.is.null,valid_until.gte.${today}`),
   ])
 
   return (
@@ -35,7 +35,7 @@ export default async function EditorTurnosPage() {
       slots={slots ?? []}
       players={players ?? []}
       assignments={assignments ?? []}
-      weekStart={weekStr}
+      today={today}
     />
   )
 }

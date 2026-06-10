@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 import type { AccountStatus, PaymentStatus } from '@/types'
 
 interface Profile {
@@ -39,14 +39,24 @@ const PAYMENT_DOT: Record<PaymentStatus, string> = {
   owes_previous: '🔴',
 }
 
+function freqBadge(f: number) {
+  const label = f === 1 ? '1 clase/semana'
+              : f === 2 ? '2 clases/semana'
+              : f === 3 ? '3 clases/semana'
+              : '4 o más clases/semana'
+  return (
+    <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-club-green/15 text-club-green border border-club-green/30">
+      {label}
+    </span>
+  )
+}
+
 export function JugadoresClient({ jugadores, paymentMap }: Props) {
-  const supabase = createClient()
+  const router = useRouter()
   const [search, setSearch]     = useState('')
   const [statusFilter, setStatusFilter] = useState<AccountStatus | 'all'>('all')
   const [payFilter, setPayFilter]       = useState<PaymentStatus | 'all'>('all')
-  const [selected, setSelected]         = useState<Jugador | null>(null)
-  const [activating, setActivating]     = useState<string | null>(null)
-  const [localJugadores, setLocalJugadores] = useState(jugadores)
+  const [localJugadores] = useState(jugadores)
 
   const filtered = localJugadores.filter(j => {
     const matchSearch = !search ||
@@ -58,22 +68,6 @@ export function JugadoresClient({ jugadores, paymentMap }: Props) {
     const matchPay = payFilter === 'all' || pay === payFilter
     return matchSearch && matchStatus && matchPay
   })
-
-  async function activatePlayer(jugadorId: string) {
-    setActivating(jugadorId)
-    try {
-      const { error } = await supabase
-        .from('user_accounts')
-        .update({ status: 'active' })
-        .eq('id', jugadorId)
-      if (!error) {
-        setLocalJugadores(prev => prev.map(j => j.id === jugadorId ? { ...j, status: 'active' as AccountStatus } : j))
-        if (selected?.id === jugadorId) setSelected(s => s ? { ...s, status: 'active' } : s)
-      }
-    } finally {
-      setActivating(null)
-    }
-  }
 
   function exportCsv() {
     const rows = filtered.map(j => [
@@ -137,7 +131,7 @@ export function JugadoresClient({ jugadores, paymentMap }: Props) {
           return (
             <button
               key={j.id}
-              onClick={() => setSelected(j)}
+              onClick={() => router.push(`/jugadores/${j.id}`)}
               className="w-full card flex items-center justify-between gap-3 text-left hover:border-club-green/40 transition-colors"
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -151,11 +145,7 @@ export function JugadoresClient({ jugadores, paymentMap }: Props) {
                 <span className={`text-xs ${STATUS_CONFIG[j.status].cls}`}>
                   {STATUS_CONFIG[j.status].label}
                 </span>
-                {j.player_profiles && (
-                  <span className="text-xs text-gray-600 hidden sm:block">
-                    {j.player_profiles.frequency}×/sem
-                  </span>
-                )}
+                {j.player_profiles && freqBadge(j.player_profiles.frequency)}
               </div>
             </button>
           )
@@ -168,58 +158,6 @@ export function JugadoresClient({ jugadores, paymentMap }: Props) {
         )}
       </div>
 
-      {/* Panel de detalle — drawer lateral */}
-      {selected && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setSelected(null)} />
-          <div className="w-80 bg-[#1a1a1a] border-l border-white/10 overflow-y-auto animate-slide-up p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-white text-base truncate">{selected.display_name}</h2>
-              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-white text-lg leading-none">✕</button>
-            </div>
-
-            <div className="space-y-2 text-sm">
-              <Row label="Email"    value={selected.email} />
-              <Row label="DNI"      value={selected.dni ?? '—'} />
-              <Row label="Teléfono" value={selected.phone ?? '—'} />
-              <Row label="Estado"   value={STATUS_CONFIG[selected.status].label} cls={STATUS_CONFIG[selected.status].cls} />
-              <Row label="Roles"    value={selected.roles.join(', ')} />
-              <Row label="WhatsApp" value={selected.wa_opt_in ? 'Sí' : 'No'} />
-              {selected.player_profiles && (
-                <>
-                  <Row label="Frecuencia"  value={`${selected.player_profiles.frequency} día/s por semana`} />
-                  <Row label="Alta"        value={selected.player_profiles.joined_at} />
-                  <Row label="Cert. médico" value={selected.player_profiles.medical_cert ? 'Sí' : 'No'} />
-                </>
-              )}
-              <Row label="Pago" value={
-                paymentMap[selected.id] === 'current'       ? 'Al día 🟢' :
-                paymentMap[selected.id] === 'owes_month'    ? 'Debe el mes 🟡' :
-                paymentMap[selected.id] === 'owes_previous' ? 'Debe anteriores 🔴' : '—'
-              } />
-            </div>
-
-            {(selected.status === 'pending' || selected.status === 'pre_registered') && (
-              <button
-                onClick={() => activatePlayer(selected.id)}
-                disabled={activating === selected.id}
-                className="btn-primary w-full"
-              >
-                {activating === selected.id ? 'Activando…' : 'Activar cuenta'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Row({ label, value, cls = 'text-gray-300' }: { label: string; value: string; cls?: string }) {
-  return (
-    <div className="flex justify-between gap-2">
-      <span className="text-gray-500 shrink-0">{label}</span>
-      <span className={`${cls} text-right truncate`}>{value}</span>
     </div>
   )
 }

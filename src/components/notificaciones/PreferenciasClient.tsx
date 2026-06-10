@@ -3,156 +3,152 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
-import type { NotificationChannel } from '@/types'
+import type { TrainingSlot, SlotDay } from '@/types'
+import { DAY_LABELS } from '@/types'
 
-interface DefaultRow {
-  channel: NotificationChannel
-  event_type: string
-  enabled: boolean
+const DAY_ORDER: Record<SlotDay, number> = {
+  monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6,
 }
-interface PrefRow {
-  id: string
-  channel: NotificationChannel
-  event_type: string
-  enabled: boolean
-  overridden: boolean
+
+interface SimplePref {
+  reminder_24h:  boolean
+  open_spots:    boolean
 }
+
 interface Props {
-  userId:   string
-  defaults: DefaultRow[]
-  prefs:    PrefRow[]
-  phone:    string | null
-  waOptIn:  boolean
+  userId:        string
+  waOptIn:       boolean
+  hasPhone:      boolean
+  simplePref:    SimplePref
+  favoriteSlots: string[]
+  allSlots:      Pick<TrainingSlot, 'id' | 'day_of_week' | 'start_time' | 'end_time' | 'label'>[]
 }
 
-const CHANNEL_LABELS: Record<NotificationChannel, string> = {
-  whatsapp:       'WhatsApp individual',
-  whatsapp_group: 'Grupo de WhatsApp',
-  web_push:       'Notificaciones push',
-  email:          'Email',
-}
-
-const EVENT_LABELS: Record<string, string> = {
-  booking_confirmed:  'Reserva confirmada',
-  booking_cancelled:  'Reserva cancelada',
-  slot_cancelled:     'Turno cancelado',
-  waitlist_offer:     'Oferta de lista de espera',
-  waitlist_expired:   'Oferta expirada',
-  slot_open_spots:    'Cupos libres',
-  payment_reminder:   'Recordatorio de pago',
-}
-
-export function PreferenciasClient({ userId, defaults, prefs, phone: initialPhone, waOptIn: initialWaOptIn }: Props) {
+export function PreferenciasClient({ userId, waOptIn, hasPhone, simplePref, favoriteSlots, allSlots }: Props) {
   const supabase = createClient()
   const push     = usePushNotifications()
 
-  const [phone, setPhone]       = useState(initialPhone ?? '')
-  const [waOptIn, setWaOptIn]   = useState(initialWaOptIn)
-  const [saving, setSaving]     = useState(false)
-  const [saved, setSaved]       = useState(false)
+  const [reminder, setReminder]   = useState(simplePref.reminder_24h)
+  const [openSpots, setOpenSpots] = useState(simplePref.open_spots)
+  const [favorites, setFavorites] = useState<string[]>(favoriteSlots)
+  const [savingPrefs, setSavingPrefs] = useState(false)
+  const [savedPrefs, setSavedPrefs]   = useState(false)
 
-  // Estado local de overrides: Map<`channel:event`, boolean>
-  const initialOverrides = Object.fromEntries(
-    prefs.filter(p => p.overridden).map(p => [`${p.channel}:${p.event_type}`, p.enabled])
-  )
-  const [overrides, setOverrides] = useState<Record<string, boolean>>(initialOverrides)
+  const waActive = waOptIn && hasPhone
 
-  function getEffectiveValue(channel: NotificationChannel, eventType: string): boolean {
-    const key = `${channel}:${eventType}`
-    if (key in overrides) return overrides[key]
-    return defaults.find(d => d.channel === channel && d.event_type === eventType)?.enabled ?? true
-  }
-
-  function isOverridden(channel: NotificationChannel, eventType: string): boolean {
-    return `${channel}:${eventType}` in overrides
-  }
-
-  async function togglePref(channel: NotificationChannel, eventType: string) {
-    const key      = `${channel}:${eventType}`
-    const current  = getEffectiveValue(channel, eventType)
-    const newValue = !current
-
-    // Si vuelve al default, quitar el override
-    const defaultVal = defaults.find(d => d.channel === channel && d.event_type === eventType)?.enabled ?? true
-    if (newValue === defaultVal) {
-      const { [key]: _, ...rest } = overrides
-      setOverrides(rest)
-      await supabase.from('notification_prefs')
-        .delete()
-        .eq('player_id', userId)
-        .eq('channel', channel)
-        .eq('event_type', eventType)
+  async function toggleSimplePref(key: 'reminder' | 'openSpots') {
+    if (key === 'reminder') {
+      const newVal = !reminder
+      setReminder(newVal)
+      await upsertPref('whatsapp', 'booking_confirmed', newVal)
     } else {
-      setOverrides(prev => ({ ...prev, [key]: newValue }))
-      await supabase.from('notification_prefs').upsert({
-        player_id:  userId,
-        channel,
-        event_type: eventType,
-        enabled:    newValue,
-        overridden: true,
-      }, { onConflict: 'player_id,channel,event_type' })
+      const newVal = !openSpots
+      setOpenSpots(newVal)
+      await upsertPref('whatsapp', 'slot_open_spots', newVal)
     }
   }
 
-  async function saveContact() {
-    setSaving(true)
-    setSaved(false)
+  async function upsertPref(channel: string, event_type: string, enabled: boolean) {
+    await supabase.from('notification_prefs').upsert({
+      player_id: userId,
+      channel,
+      event_type,
+      enabled,
+      overridden: true,
+    }, { onConflict: 'player_id,channel,event_type' })
+  }
+
+  function toggleFavorite(slotId: string) {
+    setFavorites(prev =>
+      prev.includes(slotId) ? prev.filter(id => id !== slotId) : [...prev, slotId]
+    )
+  }
+
+  async function saveFavorites() {
+    setSavingPrefs(true)
+    setSavedPrefs(false)
     try {
-      await supabase.from('user_accounts').update({
-        phone:      phone || null,
-        wa_opt_in:  waOptIn,
-      }).eq('id', userId)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      // Borrar todos los favoritos actuales del usuario y reinsertar los seleccionados
+      await supabase.from('favorite_slots').delete().eq('player_id', userId)
+      if (favorites.length > 0) {
+        await supabase.from('favorite_slots').insert(
+          favorites.map(slot_id => ({ player_id: userId, slot_id }))
+        )
+      }
+      setSavedPrefs(true)
+      setTimeout(() => setSavedPrefs(false), 2000)
     } finally {
-      setSaving(false)
+      setSavingPrefs(false)
     }
   }
 
-  // Agrupar defaults por canal
-  const channels = [...new Set(defaults.map(d => d.channel))] as NotificationChannel[]
+  const slotsByDay = allSlots.reduce<Record<SlotDay, typeof allSlots>>((acc, s) => {
+    const day = s.day_of_week as SlotDay
+    if (!acc[day]) acc[day] = []
+    acc[day].push(s)
+    return acc
+  }, {} as Record<SlotDay, typeof allSlots>)
+
+  const orderedDays = (Object.keys(slotsByDay) as SlotDay[]).sort(
+    (a, b) => DAY_ORDER[a] - DAY_ORDER[b]
+  )
 
   return (
     <div className="space-y-6 max-w-lg">
       <h1 className="text-xl font-bold text-white">Preferencias</h1>
 
-      {/* Datos de contacto */}
+      {/* WhatsApp */}
       <section className="card space-y-4">
-        <h2 className="text-sm font-semibold text-white">Datos de contacto</h2>
-
-        <div>
-          <label className="label">Teléfono (para WhatsApp)</label>
-          <input
-            type="tel"
-            className="input"
-            placeholder="+549 11 1234-5678"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-          />
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-white">Avisos por WhatsApp</h2>
+          {!waActive && (
+            <span className="text-xs text-amber-400">
+              Agregá tu teléfono en <a href="/perfil" className="underline">Perfil</a>
+            </span>
+          )}
         </div>
 
-        <label className="flex items-center gap-3 cursor-pointer">
-          <div
-            onClick={() => setWaOptIn(v => !v)}
-            className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${waOptIn ? 'bg-club-green' : 'bg-white/20'}`}
-          >
-            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${waOptIn ? 'translate-x-4' : 'translate-x-0'}`} />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-gray-300">Recordatorio 24hs antes</p>
+              <p className="text-xs text-gray-500">Te avisa el día anterior a cada turno.</p>
+            </div>
+            <button
+              onClick={() => waActive && toggleSimplePref('reminder')}
+              disabled={!waActive}
+              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors
+                ${!waActive ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}
+                ${reminder && waActive ? 'bg-club-green' : 'bg-white/20'}`}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${reminder && waActive ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
           </div>
-          <span className="text-sm text-gray-300">Acepto recibir mensajes de WhatsApp del club</span>
-        </label>
 
-        <button onClick={saveContact} disabled={saving} className="btn-primary">
-          {saving ? 'Guardando…' : saved ? '✓ Guardado' : 'Guardar datos'}
-        </button>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-gray-300">Avisos de cupo libre en favoritos</p>
+              <p className="text-xs text-gray-500">Te avisa cuando se libera un lugar en tus turnos favoritos.</p>
+            </div>
+            <button
+              onClick={() => waActive && toggleSimplePref('openSpots')}
+              disabled={!waActive}
+              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors
+                ${!waActive ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}
+                ${openSpots && waActive ? 'bg-club-green' : 'bg-white/20'}`}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${openSpots && waActive ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
+          </div>
+        </div>
       </section>
 
-      {/* Web Push */}
+      {/* Push */}
       <section className="card space-y-3">
         <h2 className="text-sm font-semibold text-white">Notificaciones push</h2>
-        {!push.supported && (
+        {!push.supported ? (
           <p className="text-xs text-gray-500">Tu navegador no soporta notificaciones push.</p>
-        )}
-        {push.supported && (
+        ) : (
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-300">
@@ -175,59 +171,62 @@ export function PreferenciasClient({ userId, defaults, prefs, phone: initialPhon
         )}
       </section>
 
-      {/* Preferencias por canal/evento */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-semibold text-white">Qué querés recibir</h2>
-        <p className="text-xs text-gray-500">
-          Los valores marcados con punto siguen el default del club. Podés personalizarlos.
-        </p>
+      {/* Turnos favoritos */}
+      <section className="card space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-white">Turnos favoritos</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Recibís un aviso cuando se libera un cupo en estos turnos.</p>
+        </div>
 
-        {channels.map(channel => {
-          const channelDefaults = defaults.filter(d => d.channel === channel)
-          if (channelDefaults.length === 0) return null
-
-          // Deshabilitar todo el canal WA si no tiene teléfono o no dio opt-in
-          const waDisabled = (channel === 'whatsapp' || channel === 'whatsapp_group') && (!phone || !waOptIn)
-
-          return (
-            <div key={channel} className="card space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-white">{CHANNEL_LABELS[channel]}</h3>
-                {waDisabled && (
-                  <span className="text-xs text-amber-500">Requiere teléfono y opt-in</span>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                {channelDefaults.map(d => {
-                  const enabled    = getEffectiveValue(channel, d.event_type)
-                  const overridden = isOverridden(channel, d.event_type)
-                  return (
-                    <div key={d.event_type} className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-sm text-gray-300 truncate">
-                          {EVENT_LABELS[d.event_type] ?? d.event_type}
-                        </span>
-                        {!overridden && (
-                          <span className="text-[10px] text-gray-600 shrink-0">·club</span>
-                        )}
-                      </div>
+        {allSlots.length === 0 ? (
+          <p className="text-xs text-gray-500">No hay turnos activos.</p>
+        ) : (
+          <div className="space-y-4">
+            {orderedDays.map(day => (
+              <div key={day}>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  {DAY_LABELS[day]}
+                </p>
+                <div className="space-y-1">
+                  {slotsByDay[day].map(slot => {
+                    const isFav = favorites.includes(slot.id)
+                    return (
                       <button
-                        onClick={() => !waDisabled && togglePref(channel, d.event_type)}
-                        disabled={waDisabled}
-                        className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors
-                          ${waDisabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}
-                          ${enabled ? 'bg-club-green' : 'bg-white/20'}`}
+                        key={slot.id}
+                        onClick={() => toggleFavorite(slot.id)}
+                        className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl border transition-colors text-left ${
+                          isFav
+                            ? 'border-club-green/50 bg-club-green/10'
+                            : 'border-white/10 hover:border-white/20 bg-white/[0.02]'
+                        }`}
                       >
-                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                        <div>
+                          <span className="text-sm text-white">
+                            {slot.start_time.slice(0, 5)}–{slot.end_time.slice(0, 5)}
+                          </span>
+                          {slot.label && (
+                            <span className="text-xs text-gray-500 ml-2">{slot.label}</span>
+                          )}
+                        </div>
+                        <span className={`text-lg leading-none ${isFav ? 'text-yellow-400' : 'text-gray-700'}`}>
+                          ★
+                        </span>
                       </button>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={saveFavorites}
+          disabled={savingPrefs}
+          className="btn-primary w-full"
+        >
+          {savingPrefs ? 'Guardando…' : savedPrefs ? '✓ Guardado' : 'Guardar favoritos'}
+        </button>
       </section>
     </div>
   )

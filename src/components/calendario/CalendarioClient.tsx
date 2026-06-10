@@ -23,8 +23,11 @@ interface Props {
 export function CalendarioClient({ instances: initial, myBookings: initialBookings, userId, today }: Props) {
   const [instances, setInstances]   = useState(initial)
   const [myBookings, setMyBookings] = useState(initialBookings)
+  const [daysToShow, setDaysToShow] = useState(7)
   const [, startTransition]         = useTransition()
   const supabase                    = createClient()
+
+  const MAX_DAYS = 56  // 8 semanas
 
   // Realtime
   useEffect(() => {
@@ -72,11 +75,11 @@ export function CalendarioClient({ instances: initial, myBookings: initialBookin
 
   const myBookingMap = Object.fromEntries(myBookings.map(b => [b.instance_id, b]))
 
-  // 7 días desde hoy, sin domingos
+  // días desde hoy, sin domingos, hasta daysToShow
   const days: string[] = []
   let cursor = parseISO(today)
-  while (days.length < 7) {
-    const dow = getDay(cursor) // 0=dom, 6=sáb
+  while (days.length < daysToShow) {
+    const dow = getDay(cursor)
     if (dow !== 0) days.push(format(cursor, 'yyyy-MM-dd'))
     cursor = addDays(cursor, 1)
   }
@@ -92,8 +95,12 @@ export function CalendarioClient({ instances: initial, myBookings: initialBookin
   return (
     <div className="space-y-1">
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-white">Calendario</h1>
-        <p className="text-xs text-gray-500 mt-0.5">Próximos 7 días · Reservá tu turno</p>
+        <h1 className="text-xl font-bold text-white">Turnos</h1>
+        <p className="text-xs text-gray-500 mt-0.5">
+          {daysToShow <= 7
+            ? 'Próxima semana · Reservá tu turno'
+            : `Próximas ${Math.round(daysToShow / 7)} semanas · Reservá tu turno`}
+        </p>
       </div>
 
       {days.map(dateStr => {
@@ -143,13 +150,15 @@ export function CalendarioClient({ instances: initial, myBookings: initialBookin
                         ))
                       }
                     }}
-                    onCancelled={(instanceId) => {
+                    onCancelled={(instanceId, wasConfirmed) => {
                       setMyBookings(prev => prev.filter(x => x.instance_id !== instanceId))
-                      setInstances(prev => prev.map(i =>
-                        i.instance_id === instanceId
-                          ? { ...i, confirmed_count: Math.max(0, i.confirmed_count - 1), available_spots: i.available_spots + 1 }
-                          : i
-                      ))
+                      if (wasConfirmed) {
+                        setInstances(prev => prev.map(i =>
+                          i.instance_id === instanceId
+                            ? { ...i, confirmed_count: Math.max(0, i.confirmed_count - 1), available_spots: i.available_spots + 1 }
+                            : i
+                        ))
+                      }
                     }}
                   />
                 ))}
@@ -158,6 +167,21 @@ export function CalendarioClient({ instances: initial, myBookings: initialBookin
           </div>
         )
       })}
+
+      {/* Botón cargar más días */}
+      {daysToShow < MAX_DAYS ? (
+        <button
+          onClick={() => setDaysToShow(d => Math.min(d + 7, MAX_DAYS))}
+          className="w-full mt-4 py-3 rounded-xl border border-dashed border-white/20 text-gray-400 hover:text-white hover:border-white/40 transition-colors text-sm flex items-center justify-center gap-2"
+        >
+          <span className="text-lg leading-none font-light">+</span>
+          Ver 7 días más
+        </button>
+      ) : (
+        <p className="text-center text-xs text-gray-600 mt-4 py-2">
+          Mostrando hasta 8 semanas adelante
+        </p>
+      )}
     </div>
   )
 }
@@ -172,7 +196,7 @@ function SlotCard({
   booking:     BookingMin | null
   userId:      string | null
   onBooked:    (b: BookingMin) => void
-  onCancelled: (instanceId: string) => void
+  onCancelled: (instanceId: string, wasConfirmed: boolean) => void
 }) {
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
@@ -206,7 +230,8 @@ function SlotCard({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Error al reservar')
-      onBooked({ id: data.id, instance_id, status: data.status, waitlist_pos: data.waitlist_pos ?? null })
+      const b = data.booking
+      onBooked({ id: b.id, instance_id, status: b.status, waitlist_pos: b.waitlist_pos ?? null })
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error')
     } finally {
@@ -223,7 +248,7 @@ function SlotCard({
         const data = await res.json()
         throw new Error(data.error ?? 'Error al cancelar')
       }
-      onCancelled(instance_id)
+      onCancelled(instance_id, booking.status === 'confirmed')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error')
     } finally {
@@ -239,7 +264,6 @@ function SlotCard({
           <p className="text-[11px] text-gray-400 font-mono leading-none">
             {start_time.slice(0,5)}–{end_time.slice(0,5)}
           </p>
-          {label && <p className="text-[10px] text-gray-600 mt-0.5 truncate">{label}</p>}
         </div>
         {/* Badge disponibilidad */}
         {!isBooked && !isWaiting && (
@@ -266,12 +290,9 @@ function SlotCard({
           style={{ width: `${Math.min(pct, 100)}%` }}
         />
       </div>
-      <p className="text-[10px] text-gray-600 -mt-1">
-        {confirmed_count}/{capacity} confirmados
-        {waitlist_count > 0 && !isBooked && !isWaiting && (
-          <span className="ml-1 text-gray-700">· {waitlist_count} en espera</span>
-        )}
-      </p>
+      {waitlist_count > 0 && !isBooked && !isWaiting && (
+        <p className="text-[10px] text-gray-700 -mt-1">{waitlist_count} en espera</p>
+      )}
 
       {/* Estado espera */}
       {isWaiting && (

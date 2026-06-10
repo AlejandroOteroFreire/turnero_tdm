@@ -15,11 +15,20 @@ const STATUS_CONFIG = {
   owes_previous: { label: 'Debe meses anteriores', cls: 'badge-previous', dot: '🔴' },
 }
 
+const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+
 export function PagosClient({ paymentStatuses, recentPayments: initial }: Props) {
+  const now = new Date()
   const [payments, setPayments] = useState(initial)
   const [filter, setFilter]     = useState<'all' | 'current' | 'owes_month' | 'owes_previous'>('all')
   const [showForm, setShowForm] = useState<string | null>(null)  // player_id
-  const [formData, setFormData] = useState({ amount: '5000', notes: '' })
+  const [formData, setFormData] = useState({
+    amount: '5000',
+    month:  now.getMonth() + 1,
+    year:   now.getFullYear(),
+    method: 'efectivo' as 'efectivo' | 'transferencia' | 'otro',
+    notes:  '',
+  })
   const [saving, setSaving]     = useState(false)
   const supabase = createClient()
 
@@ -36,22 +45,21 @@ export function PagosClient({ paymentStatuses, recentPayments: initial }: Props)
   async function registerPayment(playerId: string) {
     setSaving(true)
     try {
-      const now   = new Date()
       const { data: { user } } = await supabase.auth.getUser()
+      const notesValue = `Método: ${formData.method}.${formData.notes ? ' ' + formData.notes : ''}`
       const { data } = await supabase.from('payments').insert({
         player_id:     playerId,
         type:          'monthly',
         amount:        parseFloat(formData.amount),
-        period_month:  now.getMonth() + 1,
-        period_year:   now.getFullYear(),
+        period_month:  formData.month,
+        period_year:   formData.year,
         paid_at:       now.toISOString().split('T')[0],
         registered_by: user!.id,
-        notes:         formData.notes || null,
+        notes:         notesValue,
       }).select('*, user_accounts!player_id(display_name)').single()
 
       if (data) setPayments(prev => [data as typeof prev[0], ...prev])
       setShowForm(null)
-      // Refrescar la página para actualizar semáforo
       window.location.reload()
     } finally {
       setSaving(false)
@@ -101,7 +109,7 @@ export function PagosClient({ paymentStatuses, recentPayments: initial }: Props)
         </h2>
 
         {filtered.map(player => (
-          <div key={player.player_id} className="card flex items-center justify-between gap-3">
+          <div key={player.player_id} className={`card ${showForm === player.player_id ? 'flex-col' : 'flex items-center justify-between'} gap-3`}>
             <div className="flex items-center gap-3 min-w-0">
               <span className="text-lg">{STATUS_CONFIG[player.payment_status].dot}</span>
               <div className="min-w-0">
@@ -113,20 +121,71 @@ export function PagosClient({ paymentStatuses, recentPayments: initial }: Props)
             </div>
 
             {showForm === player.player_id ? (
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="mt-3 w-full border-t border-white/10 pt-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="label text-xs">Monto ($)</label>
+                    <input
+                      type="number"
+                      className="input text-xs py-1"
+                      value={formData.amount}
+                      onChange={e => setFormData(p => ({ ...p, amount: e.target.value }))}
+                      min="0"
+                      step="100"
+                    />
+                  </div>
+                  <div>
+                    <label className="label text-xs">Método</label>
+                    <select
+                      className="input text-xs py-1"
+                      value={formData.method}
+                      onChange={e => setFormData(p => ({ ...p, method: e.target.value as typeof p.method }))}
+                    >
+                      <option value="efectivo">Efectivo</option>
+                      <option value="transferencia">Transferencia</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label text-xs">Mes</label>
+                    <select
+                      className="input text-xs py-1"
+                      value={formData.month}
+                      onChange={e => setFormData(p => ({ ...p, month: parseInt(e.target.value) }))}
+                    >
+                      {MONTHS.map((m, i) => (
+                        <option key={i} value={i + 1}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label text-xs">Año</label>
+                    <select
+                      className="input text-xs py-1"
+                      value={formData.year}
+                      onChange={e => setFormData(p => ({ ...p, year: parseInt(e.target.value) }))}
+                    >
+                      {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <input
-                  type="number"
-                  className="input w-24 text-xs py-1"
-                  value={formData.amount}
-                  onChange={e => setFormData(p => ({ ...p, amount: e.target.value }))}
-                  placeholder="Monto"
+                  type="text"
+                  className="input text-xs py-1 w-full"
+                  value={formData.notes}
+                  onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))}
+                  placeholder="Notas opcionales…"
                 />
-                <button onClick={() => registerPayment(player.player_id)} disabled={saving} className="btn-primary text-xs py-1 px-3">
-                  {saving ? '…' : 'Guardar'}
-                </button>
-                <button onClick={() => setShowForm(null)} className="btn-ghost text-xs py-1 px-2">
-                  ✕
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => registerPayment(player.player_id)} disabled={saving} className="btn-primary text-xs py-1 px-3">
+                    {saving ? '…' : 'Guardar'}
+                  </button>
+                  <button onClick={() => setShowForm(null)} className="btn-ghost text-xs py-1 px-2">
+                    Cancelar
+                  </button>
+                </div>
               </div>
             ) : (
               <button
