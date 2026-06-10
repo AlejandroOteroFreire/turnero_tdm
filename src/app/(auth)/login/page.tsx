@@ -16,6 +16,8 @@ export default function LoginPage() {
   const [error, setError]       = useState<string | null>(null)
   const [loading, setLoading]   = useState(false)
 
+  const isExpired = searchParams.get('reason') === 'expired'
+
   const supabase = createClient()
 
   async function handleLogin(e: React.FormEvent) {
@@ -69,6 +71,11 @@ export default function LoginPage() {
         <div className="card space-y-4">
           <h2 className="text-base font-semibold text-white">Iniciar sesión</h2>
 
+          {isExpired && !error && (
+            <div className="rounded-lg bg-yellow-900/30 border border-yellow-700/50 px-3 py-2 text-sm text-yellow-300">
+              Tu sesión expiró por inactividad. Ingresá nuevamente.
+            </div>
+          )}
           {error && (
             <div className="rounded-lg bg-red-900/30 border border-red-700/50 px-3 py-2 text-sm text-red-300">
               {error}

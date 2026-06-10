@@ -15,8 +15,7 @@ export async function PATCH(req: Request) {
   const { key, value } = await req.json()
   const { error } = await supabase
     .from('app_config')
-    .update({ value, updated_by: user.id, updated_at: new Date().toISOString() })
-    .eq('key', key)
+    .upsert({ key, value, updated_by: user.id, updated_at: new Date().toISOString() })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

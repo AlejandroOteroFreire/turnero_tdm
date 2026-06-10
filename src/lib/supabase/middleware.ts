@@ -44,18 +44,53 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
+  const SESSION_MINUTES = 30
+  const SESSION_MS      = SESSION_MINUTES * 60 * 1000
+  const COOKIE_NAME     = 'ss_exp'
+  const pathname        = request.nextUrl.pathname
+
   // Rutas protegidas
   const protectedPaths = ['/calendario', '/mis-turnos', '/preferencias', '/jugadores', '/asistencia', '/pagos', '/editor-turnos', '/estadisticas']
-  const isProtected = protectedPaths.some(p => request.nextUrl.pathname.startsWith(p))
+  const isProtected = protectedPaths.some(p => pathname.startsWith(p))
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('next', request.nextUrl.pathname)
+    url.searchParams.set('next', pathname)
     return NextResponse.redirect(url)
   }
 
-  // No redirigir desde login/register — la página de login maneja eso
+  // Gestión del timeout de sesión (solo para usuarios autenticados)
+  // Excluir la ruta de sign-out para evitar bucle infinito
+  if (user && pathname !== '/api/auth/sign-out') {
+    const expCookie = request.cookies.get(COOKIE_NAME)?.value
+    const expTs     = expCookie ? parseInt(expCookie, 10) : 0
+    const now       = Date.now()
+
+    if (expCookie && now > expTs) {
+      // Cookie existe pero ya expiró → sesión vencida, sign out
+      const url = request.nextUrl.clone()
+      url.pathname = '/api/auth/sign-out'
+      url.searchParams.set('reason', 'expired')
+      const redirect = NextResponse.redirect(url)
+      redirect.cookies.delete(COOKIE_NAME)
+      return redirect
+    }
+
+    // Renovar la cookie: ventana deslizante de SESSION_MINUTES
+    const newExp = now + SESSION_MS
+    supabaseResponse.cookies.set(COOKIE_NAME, String(newExp), {
+      httpOnly: true,
+      sameSite: 'lax',
+      path:     '/',
+      maxAge:   SESSION_MINUTES * 60,
+    })
+  }
+
+  // Si no hay usuario activo, limpiar la cookie
+  if (!user) {
+    supabaseResponse.cookies.delete(COOKIE_NAME)
+  }
 
   return supabaseResponse
 }
