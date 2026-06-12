@@ -46,9 +46,12 @@ export default async function JugadoresPage() {
     is_manual: true,
   }))
 
+  console.log('[jugadores] raw count:', jugadores?.length, '| sample:', JSON.stringify(jugadores?.[0]))
+
   const soloJugadores = (jugadores ?? []).filter(j =>
     Array.isArray(j.roles) && j.roles.includes('player')
   )
+  console.log('[jugadores] after filter:', soloJugadores.length)
 
   const todos = [
     ...soloJugadores.map(j => ({ ...j, is_manual: false })),
