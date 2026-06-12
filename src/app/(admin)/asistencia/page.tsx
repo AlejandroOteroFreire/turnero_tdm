@@ -31,29 +31,39 @@ export default async function AsistenciaPage({
 
   const instanceIds = (instances ?? []).map(i => i.id)
 
-  const [{ data: bookings }, { data: attendance }] = await Promise.all([
+  const [{ data: bookings }, { data: waitlisted }, { data: attendance }] = await Promise.all([
     instanceIds.length > 0
       ? supabase
           .from('bookings')
-          .select('id, instance_id, player_id, status, user_accounts!player_id(display_name, dni)')
+          .select('id, instance_id, player_id, profile_id, status, user_accounts!player_id(display_name, dni), player_profiles!profile_id(full_name, dni)')
           .in('instance_id', instanceIds)
           .eq('status', 'confirmed')
-          .order('user_accounts(display_name)')
+      : { data: [] },
+    instanceIds.length > 0
+      ? supabase
+          .from('bookings')
+          .select('id, instance_id, player_id, profile_id, status, waitlist_pos, user_accounts!player_id(display_name, dni), player_profiles!profile_id(full_name, dni)')
+          .in('instance_id', instanceIds)
+          .eq('status', 'waitlisted')
+          .order('waitlist_pos')
       : { data: [] },
     instanceIds.length > 0
       ? supabase
           .from('attendance')
-          .select('id, instance_id, player_id, status')
+          .select('id, instance_id, player_id, profile_id, status')
           .in('instance_id', instanceIds)
       : { data: [] },
   ])
 
   return (
     <AsistenciaClient
+      key={selectedDate}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       instances={(instances ?? []) as any}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       bookings={(bookings ?? []) as any}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      waitlisted={(waitlisted ?? []) as any}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       attendance={(attendance ?? []) as any}
       today={selectedDate}

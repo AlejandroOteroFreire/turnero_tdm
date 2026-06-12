@@ -8,14 +8,17 @@ import type { AttendanceStatus } from '@/types'
 interface SlotInfo { id: string; label: string | null; start_time: string; end_time: string; capacity: number }
 interface Instance  { id: string; date: string; status: string; training_slots: SlotInfo | null }
 interface BookingRow {
-  id: string; instance_id: string; player_id: string; status: string
-  user_accounts: { display_name: string; dni: string | null } | null
+  id: string; instance_id: string; player_id: string | null; profile_id: string | null
+  status: string; waitlist_pos?: number | null
+  user_accounts:  { display_name: string; dni: string | null } | null
+  player_profiles: { full_name: string;   dni: string | null } | null
 }
-interface AttendanceRow { id: string; instance_id: string; player_id: string; status: AttendanceStatus }
+interface AttendanceRow { id: string; instance_id: string; player_id: string | null; profile_id: string | null; status: AttendanceStatus }
 
 interface Props {
   instances:  Instance[]
   bookings:   BookingRow[]
+  waitlisted: BookingRow[]
   attendance: AttendanceRow[]
   today:      string
 }
@@ -45,13 +48,15 @@ function addDays(dateStr: string, n: number) {
   return `${yy}-${mm}-${dd}`
 }
 
-export function AsistenciaClient({ instances, bookings: initialBookings, attendance: initialAttendance, today }: Props) {
+export function AsistenciaClient({ instances, bookings: initialBookings, waitlisted: initialWaitlisted, attendance: initialAttendance, today }: Props) {
   const supabase = createClient()
   const router   = useRouter()
 
   const [bookings,   setBookings]   = useState<BookingRow[]>(initialBookings)
+  const [waitlisted, setWaitlisted] = useState<BookingRow[]>(initialWaitlisted)
   const [attendance, setAttendance] = useState<AttendanceRow[]>(initialAttendance)
   const [saving,     setSaving]     = useState<string | null>(null)  // `${playerId}-${instanceId}`
+  const [confirming, setConfirming] = useState<string | null>(null)  // booking_id
 
   const [cancelConfirm, setCancelConfirm] = useState<{
     bookingId:  string
@@ -62,12 +67,15 @@ export function AsistenciaClient({ instances, bookings: initialBookings, attenda
   } | null>(null)
   const [cancelling, setCancelling] = useState(false)
 
-  function getAttendance(playerId: string, instanceId: string): AttendanceStatus | null {
-    return attendance.find(a => a.instance_id === instanceId && a.player_id === playerId)?.status ?? null
+  function getAttendance(booking: BookingRow, instanceId: string): AttendanceStatus | null {
+    return attendance.find(a =>
+      a.instance_id === instanceId &&
+      (booking.player_id ? a.player_id === booking.player_id : a.profile_id === booking.profile_id)
+    )?.status ?? null
   }
 
-  async function markAttendance(playerId: string, instanceId: string, status: AttendanceStatus) {
-    const key = `${playerId}-${instanceId}`
+  async function markAttendance(booking: BookingRow, instanceId: string, status: AttendanceStatus) {
+    const key = `${booking.player_id ?? booking.profile_id}-${instanceId}`
     setSaving(key)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -75,7 +83,8 @@ export function AsistenciaClient({ instances, bookings: initialBookings, attenda
         .from('attendance')
         .upsert({
           instance_id: instanceId,
-          player_id:   playerId,
+          player_id:   booking.player_id ?? null,
+          profile_id:  booking.profile_id ?? null,
           status,
           marked_by:   user?.id,
           marked_at:   new Date().toISOString(),
@@ -85,7 +94,10 @@ export function AsistenciaClient({ instances, bookings: initialBookings, attenda
 
       if (!error && data) {
         setAttendance(prev => [
-          ...prev.filter(a => !(a.instance_id === instanceId && a.player_id === playerId)),
+          ...prev.filter(a => !(
+            a.instance_id === instanceId &&
+            (booking.player_id ? a.player_id === booking.player_id : a.profile_id === booking.profile_id)
+          )),
           data as AttendanceRow,
         ])
       }
@@ -97,8 +109,8 @@ export function AsistenciaClient({ instances, bookings: initialBookings, attenda
   async function markAll(instanceId: string) {
     const slotBookings = bookings.filter(b => b.instance_id === instanceId)
     for (const booking of slotBookings) {
-      if (getAttendance(booking.player_id, instanceId) !== 'present') {
-        await markAttendance(booking.player_id, instanceId, 'present')
+      if (getAttendance(booking, instanceId) !== 'present') {
+        await markAttendance(booking, instanceId, 'present')
       }
     }
   }
@@ -118,6 +130,24 @@ export function AsistenciaClient({ instances, bookings: initialBookings, attenda
     } finally {
       setCancelling(false)
       setCancelConfirm(null)
+    }
+  }
+
+  async function confirmWaitlisted(booking: BookingRow) {
+    setConfirming(booking.id)
+    try {
+      const res = await fetch('/api/admin/confirm-waitlist', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking_id: booking.id }),
+      })
+      if (res.ok) {
+        const updated = { ...booking, status: 'confirmed', waitlist_pos: null }
+        setWaitlisted(prev => prev.filter(b => b.id !== booking.id))
+        setBookings(prev => [...prev, updated])
+      }
+    } finally {
+      setConfirming(null)
     }
   }
 
@@ -165,8 +195,9 @@ export function AsistenciaClient({ instances, bookings: initialBookings, attenda
       {/* ── Secciones de turno — lado a lado ── */}
       <div className="flex flex-wrap gap-4 items-start">
         {sortedInstances.map(instance => {
-          const slot         = instance.training_slots
-          const slotBookings = bookings.filter(b => b.instance_id === instance.id)
+          const slot            = instance.training_slots
+          const slotBookings    = bookings.filter(b => b.instance_id === instance.id)
+          const slotWaitlisted  = waitlisted.filter(b => b.instance_id === instance.id)
 
           return (
             <div key={instance.id} className="space-y-3 min-w-[280px] flex-1 max-w-sm">
@@ -178,7 +209,10 @@ export function AsistenciaClient({ instances, bookings: initialBookings, attenda
                     {slot?.label ? ` · ${slot.label}` : ''}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {slotBookings.length}/{slot?.capacity ?? '?'} anotados
+                    {slotBookings.length}/{slot?.capacity ?? '?'} confirmados
+                    {slotWaitlisted.length > 0 && (
+                      <span className="text-yellow-600 ml-1">· {slotWaitlisted.length} en espera</span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -189,13 +223,13 @@ export function AsistenciaClient({ instances, bookings: initialBookings, attenda
                 </div>
               )}
 
-              {/* Cards de jugadores */}
+              {/* Cards de jugadores confirmados */}
               <div className="space-y-2">
                 {slotBookings.map(booking => {
-                  const currentStatus = getAttendance(booking.player_id, instance.id)
-                  const isSaving      = saving === `${booking.player_id}-${instance.id}`
-                  const name          = booking.user_accounts?.display_name ?? 'Jugador'
-                  const dni           = booking.user_accounts?.dni
+                  const currentStatus = getAttendance(booking, instance.id)
+                  const isSaving      = saving === `${booking.player_id ?? booking.profile_id}-${instance.id}`
+                  const name          = booking.user_accounts?.display_name ?? booking.player_profiles?.full_name ?? 'Jugador'
+                  const dni           = booking.user_accounts?.dni ?? booking.player_profiles?.dni
                   const hour          = slot ? `${slot.start_time.slice(0, 5)}–${slot.end_time.slice(0, 5)}` : ''
 
                   return (
@@ -213,7 +247,7 @@ export function AsistenciaClient({ instances, bookings: initialBookings, attenda
                         {ATTEND_OPTIONS.map(opt => (
                           <button
                             key={opt.value}
-                            onClick={() => markAttendance(booking.player_id, instance.id, opt.value)}
+                            onClick={() => markAttendance(booking, instance.id, opt.value)}
                             disabled={isSaving}
                             style={currentStatus === opt.value ? { ...opt.activeStyle, outline: '2px solid rgba(255,255,255,0.25)', outlineOffset: '1px' } : undefined}
                             className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all
@@ -243,6 +277,41 @@ export function AsistenciaClient({ instances, bookings: initialBookings, attenda
                   )
                 })}
               </div>
+
+              {/* Lista de espera */}
+              {slotWaitlisted.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-xs font-medium text-yellow-500 uppercase tracking-wide">
+                    Lista de espera ({slotWaitlisted.length})
+                  </p>
+                  {slotWaitlisted.map(booking => {
+                    const name  = booking.user_accounts?.display_name ?? booking.player_profiles?.full_name ?? 'Jugador'
+                    const dni   = booking.user_accounts?.dni ?? booking.player_profiles?.dni
+                    const isConfirming = confirming === booking.id
+
+                    return (
+                      <div key={booking.id} className="card bg-yellow-900/10 border border-yellow-700/20 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-yellow-600 font-bold">#{booking.waitlist_pos}</span>
+                              <p className="text-sm font-medium text-white">{name}</p>
+                            </div>
+                            {dni && <p className="text-xs text-gray-500 mt-0.5">DNI: {dni}</p>}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => confirmWaitlisted(booking)}
+                          disabled={isConfirming}
+                          className="btn-secondary text-xs py-1 px-3 w-full text-yellow-400 border-yellow-800"
+                        >
+                          {isConfirming ? 'Confirmando…' : 'Confirmar en este turno'}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )
         })}

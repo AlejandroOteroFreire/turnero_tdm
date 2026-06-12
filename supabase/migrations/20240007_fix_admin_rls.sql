@@ -11,14 +11,14 @@ CREATE POLICY "Admin full access on player_profiles"
     EXISTS (
       SELECT 1 FROM user_accounts
       WHERE user_accounts.id = auth.uid()
-        AND user_accounts.roles @> ARRAY['admin']::text[]
+        AND user_accounts.roles @> ARRAY['admin']::user_role[]
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM user_accounts
       WHERE user_accounts.id = auth.uid()
-        AND user_accounts.roles @> ARRAY['admin']::text[]
+        AND user_accounts.roles @> ARRAY['admin']::user_role[]
     )
   );
 
@@ -37,14 +37,14 @@ CREATE POLICY "Admin full access on training_slots"
     EXISTS (
       SELECT 1 FROM user_accounts
       WHERE user_accounts.id = auth.uid()
-        AND user_accounts.roles @> ARRAY['admin']::text[]
+        AND user_accounts.roles @> ARRAY['admin']::user_role[]
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM user_accounts
       WHERE user_accounts.id = auth.uid()
-        AND user_accounts.roles @> ARRAY['admin']::text[]
+        AND user_accounts.roles @> ARRAY['admin']::user_role[]
     )
   );
 
@@ -61,14 +61,14 @@ CREATE POLICY "Admin full access on slot_assignments"
     EXISTS (
       SELECT 1 FROM user_accounts
       WHERE user_accounts.id = auth.uid()
-        AND user_accounts.roles @> ARRAY['admin']::text[]
+        AND user_accounts.roles @> ARRAY['admin']::user_role[]
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM user_accounts
       WHERE user_accounts.id = auth.uid()
-        AND user_accounts.roles @> ARRAY['admin']::text[]
+        AND user_accounts.roles @> ARRAY['admin']::user_role[]
     )
   );
 
@@ -81,14 +81,14 @@ CREATE POLICY "Admin full access on user_accounts"
     EXISTS (
       SELECT 1 FROM user_accounts ua
       WHERE ua.id = auth.uid()
-        AND ua.roles @> ARRAY['admin']::text[]
+        AND ua.roles @> ARRAY['admin']::user_role[]
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM user_accounts ua
       WHERE ua.id = auth.uid()
-        AND ua.roles @> ARRAY['admin']::text[]
+        AND ua.roles @> ARRAY['admin']::user_role[]
     )
   );
 
@@ -101,14 +101,14 @@ CREATE POLICY "Admin full access on bookings"
     EXISTS (
       SELECT 1 FROM user_accounts
       WHERE user_accounts.id = auth.uid()
-        AND user_accounts.roles @> ARRAY['admin']::text[]
+        AND user_accounts.roles @> ARRAY['admin']::user_role[]
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM user_accounts
       WHERE user_accounts.id = auth.uid()
-        AND user_accounts.roles @> ARRAY['admin']::text[]
+        AND user_accounts.roles @> ARRAY['admin']::user_role[]
     )
   );
 
@@ -121,14 +121,14 @@ CREATE POLICY "Admin full access on payments"
     EXISTS (
       SELECT 1 FROM user_accounts
       WHERE user_accounts.id = auth.uid()
-        AND user_accounts.roles @> ARRAY['admin']::text[]
+        AND user_accounts.roles @> ARRAY['admin']::user_role[]
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM user_accounts
       WHERE user_accounts.id = auth.uid()
-        AND user_accounts.roles @> ARRAY['admin']::text[]
+        AND user_accounts.roles @> ARRAY['admin']::user_role[]
     )
   );
 
@@ -142,14 +142,14 @@ CREATE POLICY "Admin full access on app_config"
     EXISTS (
       SELECT 1 FROM user_accounts
       WHERE user_accounts.id = auth.uid()
-        AND user_accounts.roles @> ARRAY['admin']::text[]
+        AND user_accounts.roles @> ARRAY['admin']::user_role[]
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM user_accounts
       WHERE user_accounts.id = auth.uid()
-        AND user_accounts.roles @> ARRAY['admin']::text[]
+        AND user_accounts.roles @> ARRAY['admin']::user_role[]
     )
   );
 

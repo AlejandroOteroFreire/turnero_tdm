@@ -61,14 +61,16 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Gestión del timeout de sesión (solo para usuarios autenticados)
-  // Excluir la ruta de sign-out para evitar bucle infinito
-  if (user && pathname !== '/api/auth/sign-out') {
+  // Excluir rutas de sign-out y assets para evitar bucles o renovaciones por service worker
+  const isAuthRoute  = pathname === '/api/auth/sign-out'
+  const isAssetRoute = pathname.startsWith('/_next') || pathname.startsWith('/api/auth/callback') || pathname === '/sw.js'
+
+  if (user && !isAuthRoute && !isAssetRoute) {
     const expCookie = request.cookies.get(COOKIE_NAME)?.value
-    const expTs     = expCookie ? parseInt(expCookie, 10) : 0
     const now       = Date.now()
 
-    if (expCookie && now > expTs) {
-      // Cookie existe pero ya expiró → sesión vencida, sign out
+    if (!expCookie || now > parseInt(expCookie, 10)) {
+      // Sin cookie (navegador cerrado/reabierto) o expirada → sesión vencida, sign out
       const url = request.nextUrl.clone()
       url.pathname = '/api/auth/sign-out'
       url.searchParams.set('reason', 'expired')
@@ -78,8 +80,7 @@ export async function updateSession(request: NextRequest) {
     }
 
     // Renovar la cookie: ventana deslizante de SESSION_MINUTES
-    const newExp = now + SESSION_MS
-    supabaseResponse.cookies.set(COOKIE_NAME, String(newExp), {
+    supabaseResponse.cookies.set(COOKIE_NAME, String(now + SESSION_MS), {
       httpOnly: true,
       sameSite: 'lax',
       path:     '/',

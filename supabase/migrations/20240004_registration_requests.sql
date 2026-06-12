@@ -38,7 +38,7 @@ INSERT INTO app_config (key, value, description) VALUES
   ('cancel_cutoff_hours',    '2',  'Horas límite para cancelación normal'),
   ('booking_window_days',    '7',  'Días de anticipación para reservas extra'),
   ('waitlist_offer_minutes', '30', 'Minutos para confirmar cupo liberado'),
-  ('default_slot_capacity',  '12', 'Cupo default para nuevos turnos')
+  ('default_slot_capacity',  '10', 'Cupo default para nuevos turnos')
 ON CONFLICT (key) DO NOTHING;
 
 -- GRANTs para PostgREST
