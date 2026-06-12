@@ -76,7 +76,7 @@ export async function updateSession(request: NextRequest) {
     const expCookie = request.cookies.get(COOKIE_NAME)?.value
     const now       = Date.now()
 
-    if (!expCookie || now > parseInt(expCookie, 10)) {
+    if (expCookie && now > parseInt(expCookie, 10)) {
       // Sin cookie (navegador cerrado/reabierto) o expirada → sesión vencida, sign out
       const url = request.nextUrl.clone()
       url.pathname = '/api/auth/sign-out'
