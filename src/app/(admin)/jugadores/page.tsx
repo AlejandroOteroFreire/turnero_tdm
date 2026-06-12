@@ -4,7 +4,7 @@ import { JugadoresClient } from '@/components/admin/JugadoresClient'
 export default async function JugadoresPage() {
   const supabase = createServiceClient()
 
-  const [{ data: jugadores }, { data: manuales }, { data: slots }] = await Promise.all([
+  const [{ data: jugadores, error: jugErr }, { data: manuales }, { data: slots }] = await Promise.all([
     supabase
       .from('user_accounts')
       .select(`
@@ -46,7 +46,7 @@ export default async function JugadoresPage() {
     is_manual: true,
   }))
 
-  console.log('[jugadores] raw count:', jugadores?.length, '| sample:', JSON.stringify(jugadores?.[0]))
+  console.log('[jugadores] raw count:', jugadores?.length, '| error:', JSON.stringify(jugErr), '| SERVICE_ROLE_KEY set:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
 
   const soloJugadores = (jugadores ?? []).filter(j =>
     Array.isArray(j.roles) && j.roles.includes('player')
