@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import type { PlayerPaymentStatus, Payment } from '@/types'
 
 interface Props {
@@ -17,11 +16,15 @@ const STATUS_CONFIG = {
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
+const PAGE_SIZE = 20
+
 export function PagosClient({ paymentStatuses, recentPayments: initial }: Props) {
   const now = new Date()
   const [payments, setPayments] = useState(initial)
-  const [filter, setFilter]     = useState<'all' | 'current' | 'owes_month' | 'owes_previous'>('all')
-  const [showForm, setShowForm] = useState<string | null>(null)  // player_id
+  const [filter,   setFilter]   = useState<'all' | 'current' | 'owes_month' | 'owes_previous'>('all')
+  const [page,     setPage]     = useState(1)
+
+  const [showForm, setShowForm] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     amount: '5000',
     month:  now.getMonth() + 1,
@@ -29,12 +32,15 @@ export function PagosClient({ paymentStatuses, recentPayments: initial }: Props)
     method: 'efectivo' as 'efectivo' | 'transferencia' | 'otro',
     notes:  '',
   })
-  const [saving, setSaving]     = useState(false)
-  const supabase = createClient()
-
+  const [saving,    setSaving]   = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
   const filtered = filter === 'all'
     ? paymentStatuses
     : paymentStatuses.filter(p => p.payment_status === filter)
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage   = Math.min(page, totalPages)
+  const pageItems  = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
   const counts = {
     current:       paymentStatuses.filter(p => p.payment_status === 'current').length,
@@ -44,23 +50,31 @@ export function PagosClient({ paymentStatuses, recentPayments: initial }: Props)
 
   async function registerPayment(playerId: string) {
     setSaving(true)
+    setFormError(null)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
       const notesValue = `Método: ${formData.method}.${formData.notes ? ' ' + formData.notes : ''}`
-      const { data } = await supabase.from('payments').insert({
-        player_id:     playerId,
-        type:          'monthly',
-        amount:        parseFloat(formData.amount),
-        period_month:  formData.month,
-        period_year:   formData.year,
-        paid_at:       now.toISOString().split('T')[0],
-        registered_by: user!.id,
-        notes:         notesValue,
-      }).select('*, user_accounts!player_id(display_name)').single()
-
-      if (data) setPayments(prev => [data as typeof prev[0], ...prev])
+      const res = await fetch('/api/admin/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player_id:    playerId,
+          type:         'monthly',
+          amount:       parseFloat(formData.amount),
+          period_month: formData.month,
+          period_year:  formData.year,
+          paid_at:      now.toISOString().split('T')[0],
+          notes:        notesValue,
+        }),
+      })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
+      const data = await res.json()
+      // Re-fetch display_name por separado (la API no hace join)
+      const playerStatus = paymentStatuses.find(p => p.player_id === playerId)
+      const withName = { ...data, user_accounts: { display_name: playerStatus?.display_name ?? '—' } }
+      setPayments(prev => [withName as typeof prev[0], ...prev])
       setShowForm(null)
-      window.location.reload()
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : 'Error al registrar pago')
     } finally {
       setSaving(false)
     }
@@ -92,7 +106,7 @@ export function PagosClient({ paymentStatuses, recentPayments: initial }: Props)
         {(['current', 'owes_month', 'owes_previous'] as const).map(status => (
           <button
             key={status}
-            onClick={() => setFilter(filter === status ? 'all' : status)}
+            onClick={() => { setFilter(filter === status ? 'all' : status); setPage(1) }}
             className={`card text-center transition-all ${filter === status ? 'border-club-green' : ''}`}
           >
             <p className="text-2xl font-bold text-white">{counts[status]}</p>
@@ -108,8 +122,8 @@ export function PagosClient({ paymentStatuses, recentPayments: initial }: Props)
           <span className="ml-2 text-gray-600">({filtered.length})</span>
         </h2>
 
-        {filtered.map(player => (
-          <div key={player.player_id} className={`card ${showForm === player.player_id ? 'flex-col' : 'flex items-center justify-between'} gap-3`}>
+        {pageItems.map(player => (
+          <div key={player.player_id} className={`card gap-3 ${showForm === player.player_id ? 'flex-col' : 'flex items-center justify-between'}`}>
             <div className="flex items-center gap-3 min-w-0">
               <span className="text-lg">{STATUS_CONFIG[player.payment_status].dot}</span>
               <div className="min-w-0">
@@ -125,22 +139,13 @@ export function PagosClient({ paymentStatuses, recentPayments: initial }: Props)
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="label text-xs">Monto ($)</label>
-                    <input
-                      type="number"
-                      className="input text-xs py-1"
-                      value={formData.amount}
-                      onChange={e => setFormData(p => ({ ...p, amount: e.target.value }))}
-                      min="0"
-                      step="100"
-                    />
+                    <input type="number" className="input text-xs py-1" value={formData.amount}
+                      onChange={e => setFormData(p => ({ ...p, amount: e.target.value }))} min="0" step="100" />
                   </div>
                   <div>
                     <label className="label text-xs">Método</label>
-                    <select
-                      className="input text-xs py-1"
-                      value={formData.method}
-                      onChange={e => setFormData(p => ({ ...p, method: e.target.value as typeof p.method }))}
-                    >
+                    <select className="input text-xs py-1" value={formData.method}
+                      onChange={e => setFormData(p => ({ ...p, method: e.target.value as typeof p.method }))}>
                       <option value="efectivo">Efectivo</option>
                       <option value="transferencia">Transferencia</option>
                       <option value="otro">Otro</option>
@@ -148,48 +153,39 @@ export function PagosClient({ paymentStatuses, recentPayments: initial }: Props)
                   </div>
                   <div>
                     <label className="label text-xs">Mes</label>
-                    <select
-                      className="input text-xs py-1"
-                      value={formData.month}
-                      onChange={e => setFormData(p => ({ ...p, month: parseInt(e.target.value) }))}
-                    >
-                      {MONTHS.map((m, i) => (
-                        <option key={i} value={i + 1}>{m}</option>
-                      ))}
+                    <select className="input text-xs py-1" value={formData.month}
+                      onChange={e => setFormData(p => ({ ...p, month: parseInt(e.target.value) }))}>
+                      {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="label text-xs">Año</label>
-                    <select
-                      className="input text-xs py-1"
-                      value={formData.year}
-                      onChange={e => setFormData(p => ({ ...p, year: parseInt(e.target.value) }))}
-                    >
+                    <select className="input text-xs py-1" value={formData.year}
+                      onChange={e => setFormData(p => ({ ...p, year: parseInt(e.target.value) }))}>
                       {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => (
                         <option key={y} value={y}>{y}</option>
                       ))}
                     </select>
                   </div>
                 </div>
-                <input
-                  type="text"
-                  className="input text-xs py-1 w-full"
-                  value={formData.notes}
+                <input type="text" className="input text-xs py-1 w-full" value={formData.notes}
                   onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))}
-                  placeholder="Notas opcionales…"
-                />
+                  placeholder="Notas opcionales…" />
+                {formError && <p className="text-xs text-red-400">{formError}</p>}
                 <div className="flex gap-2">
-                  <button onClick={() => registerPayment(player.player_id)} disabled={saving} className="btn-primary text-xs py-1 px-3">
+                  <button onClick={() => registerPayment(player.player_id)} disabled={saving}
+                    className="btn-primary text-xs py-1 px-3">
                     {saving ? '…' : 'Guardar'}
                   </button>
-                  <button onClick={() => setShowForm(null)} className="btn-ghost text-xs py-1 px-2">
+                  <button onClick={() => { setShowForm(null); setFormError(null) }}
+                    className="btn-ghost text-xs py-1 px-2">
                     Cancelar
                   </button>
                 </div>
               </div>
             ) : (
               <button
-                onClick={() => setShowForm(player.player_id)}
+                onClick={() => { setShowForm(player.player_id); setFormError(null) }}
                 className="btn-secondary text-xs py-1 px-3 shrink-0"
               >
                 + Pago
@@ -197,19 +193,51 @@ export function PagosClient({ paymentStatuses, recentPayments: initial }: Props)
             )}
           </div>
         ))}
+
+        {/* Paginación */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+              className="btn-ghost text-sm px-3 py-1.5 disabled:opacity-30">←</button>
+            <span className="text-sm text-gray-400">Página {safePage} de {totalPages}</span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+              className="btn-ghost text-sm px-3 py-1.5 disabled:opacity-30">→</button>
+          </div>
+        )}
       </div>
 
-      {/* Últimos pagos registrados */}
+      {/* Últimos pagos registrados — con columna Período */}
       <div>
         <h2 className="text-sm font-semibold text-gray-400 mb-2">Últimos pagos registrados</h2>
-        <div className="space-y-1">
-          {payments.slice(0, 10).map(p => (
-            <div key={p.id} className="flex items-center justify-between text-xs text-gray-400 py-1 border-b border-white/5">
-              <span>{p.user_accounts?.display_name ?? '—'}</span>
-              <span>${p.amount.toLocaleString('es-AR')}</span>
-              <span>{p.paid_at}</span>
-            </div>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-gray-600 border-b border-white/10">
+                <th className="pb-1.5 pr-3">Jugador</th>
+                <th className="pb-1.5 pr-3">Período</th>
+                <th className="pb-1.5 pr-3 text-right">Monto</th>
+                <th className="pb-1.5">Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.slice(0, 20).map(p => (
+                <tr key={p.id} className="border-b border-white/5 last:border-0">
+                  <td className="py-1.5 pr-3 text-gray-300 truncate max-w-[130px]">
+                    {p.user_accounts?.display_name ?? '—'}
+                  </td>
+                  <td className="py-1.5 pr-3 text-gray-400">
+                    {p.period_month && p.period_year
+                      ? `${MONTHS[p.period_month - 1]} ${p.period_year}`
+                      : '—'}
+                  </td>
+                  <td className="py-1.5 pr-3 text-right text-white font-medium">
+                    ${p.amount.toLocaleString('es-AR')}
+                  </td>
+                  <td className="py-1.5 text-gray-500">{p.paid_at}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

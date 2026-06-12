@@ -108,16 +108,18 @@ export default function PerfilPage() {
     }
   }
 
+  const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d).{8,}$/
+
   async function changePassword(e: React.FormEvent) {
     e.preventDefault()
     setPassError(null)
     setPassSaved(false)
-    if (newPassword !== confirmPassword) {
-      setPassError('Las contraseñas no coinciden.')
+    if (!PASSWORD_REGEX.test(newPassword)) {
+      setPassError('La contraseña debe tener al menos 8 caracteres, una mayúscula y un número.')
       return
     }
-    if (newPassword.length < 8) {
-      setPassError('La contraseña debe tener al menos 8 caracteres.')
+    if (newPassword !== confirmPassword) {
+      setPassError('Las contraseñas no coinciden.')
       return
     }
     setSavingPass(true)
@@ -304,10 +306,9 @@ export default function PerfilPage() {
             <input
               type="password"
               className="input"
-              placeholder="Mínimo 8 caracteres"
+              placeholder="Mín. 8 caracteres, 1 mayúscula y 1 número"
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
-              minLength={8}
               autoComplete="new-password"
             />
           </div>

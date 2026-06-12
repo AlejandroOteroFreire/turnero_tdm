@@ -1,51 +1,61 @@
 import { createClient } from '@/lib/supabase/server'
 import { JugadorDetalleClient } from '@/components/admin/JugadorDetalleClient'
-import { notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
+import { format } from 'date-fns'
+import { toZonedTime } from 'date-fns-tz'
 
-export default async function JugadorDetallePage({ params }: { params: { id: string } }) {
+const TZ = 'America/Argentina/Buenos_Aires'
+
+export default async function JugadorDetallePage() {
+  const playerId = cookies().get('_sp')?.value
+  if (!playerId) redirect('/jugadores')
+
   const supabase = createClient()
-  const today = new Date().toISOString().split('T')[0]
+  const today = format(toZonedTime(new Date(), TZ), 'yyyy-MM-dd')
 
-  // Cargar cuenta y perfil
   const { data: account } = await supabase
     .from('user_accounts')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', playerId)
     .single()
 
-  if (!account) notFound()
+  if (!account) redirect('/jugadores')
 
   const { data: profile } = await supabase
     .from('player_profiles')
     .select('*')
-    .eq('user_id', params.id)
+    .eq('user_id', playerId)
     .maybeSingle()
 
-  // Slot assignments activos
   const { data: assignments } = await supabase
     .from('slot_assignments')
     .select(`
       id, slot_id, valid_from, valid_until,
       training_slots ( id, day_of_week, start_time, end_time, label, capacity )
     `)
-    .eq('player_id', params.id)
+    .eq('player_id', playerId)
     .or(`valid_until.is.null,valid_until.gte.${today}`)
 
-  // Pagos
   const { data: payments } = await supabase
     .from('payments')
     .select('*')
-    .eq('player_id', params.id)
+    .eq('player_id', playerId)
     .order('paid_at', { ascending: false })
 
-  // Estado de pago
   const { data: payStatus } = await supabase
     .from('player_payment_status')
     .select('payment_status')
-    .eq('player_id', params.id)
+    .eq('player_id', playerId)
     .maybeSingle()
 
-  // Actividad reciente (últimos 90 días)
+  const { data: allSlots } = await supabase
+    .from('training_slots')
+    .select('id, day_of_week, start_time, end_time, label, capacity, is_active, created_by, created_at')
+    .eq('is_active', true)
+    .order('day_of_week')
+    .order('start_time')
+
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   const { data: bookings } = await supabase
     .from('bookings')
@@ -56,7 +66,7 @@ export default async function JugadorDetallePage({ params }: { params: { id: str
         training_slots!slot_id ( day_of_week, start_time, end_time, label )
       )
     `)
-    .eq('player_id', params.id)
+    .eq('player_id', playerId)
     .gte('booked_at', ninetyDaysAgo + 'T00:00:00')
     .order('booked_at', { ascending: false })
     .limit(50)
@@ -65,10 +75,15 @@ export default async function JugadorDetallePage({ params }: { params: { id: str
     <JugadorDetalleClient
       account={account}
       profile={profile}
-      assignments={assignments ?? []}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      assignments={(assignments ?? []) as any}
       payments={payments ?? []}
       paymentStatus={payStatus?.payment_status ?? null}
-      bookings={bookings ?? []}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      bookings={(bookings ?? []) as any}
+      allSlots={allSlots ?? []}
+      today={today}
+      isAdmin={true}
     />
   )
 }

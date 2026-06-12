@@ -3,7 +3,7 @@
 // ============================================================
 
 export type UserRole = 'player' | 'collaborator' | 'admin'
-export type AccountStatus = 'active' | 'pending' | 'pre_registered' | 'suspended'
+export type AccountStatus = 'active' | 'pending' | 'pre_registered' | 'suspended' | 'disabled'
 export type SlotDay = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'
 export type BookingStatus = 'confirmed' | 'waitlisted' | 'cancelled' | 'cancelled_late' | 'no_show'
 export type InstanceStatus = 'active' | 'cancelled' | 'holiday'

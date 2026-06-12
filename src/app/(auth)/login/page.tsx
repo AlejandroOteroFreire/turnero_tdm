@@ -1,15 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { Shield } from '@/components/ui/Shield'
 
 export default function LoginPage() {
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const next = searchParams.get('next') ?? '/calendario'
+  const next = searchParams.get('next')
 
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
@@ -18,28 +16,19 @@ export default function LoginPage() {
 
   const isExpired = searchParams.get('reason') === 'expired'
 
-  const supabase = createClient()
-
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
-
-      // Navegación completa (no router.push) para que el servidor
-      // lea la cookie de sesión nueva correctamente
-      const { data: account } = await supabase
-        .from('user_accounts')
-        .select('roles')
-        .eq('id', data.user.id)
-        .single()
-      const roles: string[] = account?.roles ?? []
-      const destination = searchParams.get('next')
-        ?? (roles.includes('admin') || roles.includes('collaborator') ? '/jugadores' : '/calendario')
-
-      window.location.href = destination
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Error al iniciar sesión')
+      window.location.href = next ?? data.destination
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión')
     } finally {
@@ -49,11 +38,15 @@ export default function LoginPage() {
 
   async function handleGoogle() {
     setError(null)
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
-    })
-    if (error) setError(error.message)
+    try {
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next ?? '/calendario')}` },
+      })
+      if (error) setError(error.message)
+    } catch { setError('Error al iniciar sesión con Google') }
   }
 
   return (
@@ -110,6 +103,11 @@ export default function LoginPage() {
             <button type="submit" disabled={loading} className="btn-primary w-full mt-1">
               {loading ? 'Ingresando…' : 'Ingresar'}
             </button>
+            <div className="text-right">
+              <Link href="/olvide-password" className="text-xs text-gray-500 hover:text-gray-300">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
           </form>
 
           <div className="relative">

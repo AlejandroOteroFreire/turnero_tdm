@@ -1,10 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-// IMPORTANTE: usar NEXT_PUBLIC_SUPABASE_URL como supabaseUrl para que los nombres
-// de cookies coincidan con los del browser client (sb-localhost-auth-token).
-// Los HTTP requests reales se redirigen a SUPABASE_INTERNAL_URL (kong:8000) via
-// custom fetch, ya que desde el container "localhost:54321" no es accesible.
 const PUBLIC_URL   = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const INTERNAL_URL = process.env.SUPABASE_INTERNAL_URL ?? PUBLIC_URL
 
@@ -45,13 +41,14 @@ export function createClient() {
   )
 }
 
-// Cliente con service_role para operaciones de servidor privilegiadas
+// Las políticas RLS ya permiten operaciones admin vía is_admin(). Usamos el JWT
+// del usuario autenticado (que sí es válido) en lugar del service_role key
+// (que tiene firma incorrecta para el JWT_SECRET actual del setup local).
 export function createServiceClient() {
   const cookieStore = cookies()
-
   return createServerClient(
     PUBLIC_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       global: { fetch: makeInternalFetch() },
       cookies: {

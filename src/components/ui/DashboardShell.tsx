@@ -31,11 +31,10 @@ const NAV_ADMIN = [
 ]
 
 const NAV_COLLAB = [
-  { href: '/calendario',  label: 'Turnos',     icon: '📅' },
-  { href: '/mi-plan',     label: 'Mi Plan',    icon: '📋' },
-  { href: '/jugadores',   label: 'Jugadores',  icon: '👥' },
-  { href: '/asistencia',  label: 'Asistencia', icon: '✅' },
-  { href: '/pagos',       label: 'Pagos',      icon: '💵' },
+  { href: '/jugadores',     label: 'Jugadores',   icon: '👥' },
+  { href: '/solicitudes',   label: 'Solicitudes', icon: '📋' },
+  { href: '/asistencia',    label: 'Asistencia',  icon: '✅' },
+  { href: '/editor-turnos', label: 'Editor',      icon: '🔧' },
 ]
 
 export function DashboardShell({ account, children }: { account: Account; children: React.ReactNode }) {
@@ -46,24 +45,25 @@ export function DashboardShell({ account, children }: { account: Account; childr
 
   const [menuOpen, setMenuOpen] = useState(false)
 
+  // Read active role from session cookie so it survives layout remounts
+  // when navigating across route groups. Default: always start as 'player'.
   const [activeRole, setActiveRole] = useState<UserRole>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`active_role_${account.id}`) as UserRole | null
+    if (typeof document !== 'undefined') {
+      const m = document.cookie.match(/(?:^|;\s*)_active_role=([^;]+)/)
+      const saved = m?.[1] as UserRole | undefined
       if (saved && roles.includes(saved)) return saved
     }
-    return roles[0]
+    return roles.includes('player') ? 'player' : roles[0]
   })
 
   function switchRole(role: UserRole) {
+    document.cookie = `_active_role=${role}; path=/; SameSite=Lax`
     setActiveRole(role)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(`active_role_${account.id}`, role)
-    }
-    // Redirigir a la ruta principal del rol
-    router.push(role === 'player' ? '/calendario' : '/jugadores')
+    router.push(role === 'player' ? '/calendario' : '/asistencia')
   }
 
   async function handleSignOut() {
+    document.cookie = '_active_role=; path=/; max-age=0'
     await supabase.auth.signOut()
     router.push('/login')
   }
@@ -79,7 +79,7 @@ export function DashboardShell({ account, children }: { account: Account; childr
       {/* Header */}
       <header className="sticky top-0 z-40 bg-club-black/95 backdrop-blur border-b border-white/10">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
-          <Link href="/calendario" className="flex items-center gap-2 shrink-0">
+          <Link href={activeRole === 'player' ? '/calendario' : '/asistencia'} className="flex items-center gap-2 shrink-0">
             <Shield size={32} />
             <span className="font-bold text-sm hidden sm:block text-club-green">
               TDM Newbery

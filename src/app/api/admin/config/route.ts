@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 export async function PATCH(req: Request) {
   const supabase = createClient()
@@ -13,7 +13,9 @@ export async function PATCH(req: Request) {
   }
 
   const { key, value } = await req.json()
-  const { error } = await supabase
+  // Usar service client para bypassar RLS en la escritura
+  const serviceClient = createServiceClient()
+  const { error } = await serviceClient
     .from('app_config')
     .upsert({ key, value, updated_by: user.id, updated_at: new Date().toISOString() })
 

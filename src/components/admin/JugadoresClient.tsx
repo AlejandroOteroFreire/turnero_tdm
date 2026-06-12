@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { AccountStatus, PaymentStatus } from '@/types'
+import type { AccountStatus } from '@/types'
 
 interface Profile {
   full_name: string
@@ -12,6 +12,7 @@ interface Profile {
 }
 interface Jugador {
   id: string
+  player_number: number
   display_name: string
   email: string
   phone: string | null
@@ -22,21 +23,15 @@ interface Jugador {
   player_profiles: Profile | null
 }
 interface Props {
-  jugadores:  Jugador[]
-  paymentMap: Record<string, PaymentStatus>
+  jugadores: Jugador[]
 }
 
-const STATUS_CONFIG: Record<AccountStatus, { label: string; cls: string }> = {
-  active:          { label: 'Activo',          cls: 'text-green-400'  },
-  pending:         { label: 'Pendiente',        cls: 'text-amber-400'  },
-  pre_registered:  { label: 'Pre-registrado',   cls: 'text-blue-400'   },
-  suspended:       { label: 'Suspendido',        cls: 'text-red-400'    },
-}
-
-const PAYMENT_DOT: Record<PaymentStatus, string> = {
-  current:       '🟢',
-  owes_month:    '🟡',
-  owes_previous: '🔴',
+const STATUS_CONFIG: Record<AccountStatus, { label: string; dot: string; text: string }> = {
+  active:          { label: 'Activo',        dot: 'bg-green-500',  text: 'text-green-400'  },
+  pending:         { label: 'Pendiente',     dot: 'bg-blue-500',   text: 'text-blue-400'   },
+  pre_registered:  { label: 'Sin cuenta',    dot: 'bg-gray-500',   text: 'text-gray-400'   },
+  suspended:       { label: 'Suspendido',    dot: 'bg-amber-500',  text: 'text-amber-400'  },
+  disabled:        { label: 'Deshabilitado', dot: 'bg-red-500',    text: 'text-red-400'    },
 }
 
 function freqBadge(f: number) {
@@ -51,32 +46,44 @@ function freqBadge(f: number) {
   )
 }
 
-export function JugadoresClient({ jugadores, paymentMap }: Props) {
-  const router = useRouter()
-  const [search, setSearch]     = useState('')
-  const [statusFilter, setStatusFilter] = useState<AccountStatus | 'all'>('all')
-  const [payFilter, setPayFilter]       = useState<PaymentStatus | 'all'>('all')
-  const [localJugadores] = useState(jugadores)
+const PAGE_SIZE = 20
+const ALPHABET  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
-  const filtered = localJugadores.filter(j => {
+export function JugadoresClient({ jugadores }: Props) {
+  const router = useRouter()
+  const [search,       setSearch]       = useState('')
+  const [statusFilter, setStatusFilter] = useState<AccountStatus | 'all'>('all')
+  const [letterFilter, setLetterFilter] = useState<string | null>(null)
+  const [page,         setPage]         = useState(1)
+
+  const filtered = jugadores.filter(j => {
     const matchSearch = !search ||
       j.display_name.toLowerCase().includes(search.toLowerCase()) ||
       j.email.toLowerCase().includes(search.toLowerCase()) ||
       (j.dni ?? '').includes(search)
     const matchStatus = statusFilter === 'all' || j.status === statusFilter
-    const pay = paymentMap[j.id]
-    const matchPay = payFilter === 'all' || pay === payFilter
-    return matchSearch && matchStatus && matchPay
+    const matchLetter = !letterFilter ||
+      j.display_name.toUpperCase().startsWith(letterFilter) ||
+      (j.player_profiles?.full_name ?? '').toUpperCase().startsWith(letterFilter)
+    return matchSearch && matchStatus && matchLetter
   })
+
+  const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage    = Math.min(page, totalPages)
+  const pageItems   = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
+  function setFilter(fn: () => void) {
+    fn()
+    setPage(1)
+  }
 
   function exportCsv() {
     const rows = filtered.map(j => [
       j.display_name, j.email, j.dni ?? '', j.phone ?? '',
-      STATUS_CONFIG[j.status].label,
-      PAYMENT_DOT[paymentMap[j.id]] ?? '—',
+      STATUS_CONFIG[j.status]?.label ?? j.status,
       j.player_profiles?.frequency ?? '',
     ].join(','))
-    const csv  = `Nombre,Email,DNI,Teléfono,Estado,Pago,Frecuencia/semana\n${rows.join('\n')}`
+    const csv  = `Nombre,Email,DNI,Teléfono,Estado,Frecuencia/semana\n${rows.join('\n')}`
     const blob = new Blob([csv], { type: 'text/csv' })
     const a    = document.createElement('a')
     a.href     = URL.createObjectURL(blob)
@@ -98,52 +105,69 @@ export function JugadoresClient({ jugadores, paymentMap }: Props) {
           className="input max-w-xs text-sm py-1.5"
           placeholder="Buscar nombre, email, DNI…"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => setFilter(() => setSearch(e.target.value))}
         />
         <select
           className="input w-auto text-sm py-1.5"
           value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value as AccountStatus | 'all')}
+          onChange={e => setFilter(() => setStatusFilter(e.target.value as AccountStatus | 'all'))}
         >
           <option value="all">Todos los estados</option>
           {(Object.keys(STATUS_CONFIG) as AccountStatus[]).map(s => (
             <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
           ))}
         </select>
-        <select
-          className="input w-auto text-sm py-1.5"
-          value={payFilter}
-          onChange={e => setPayFilter(e.target.value as PaymentStatus | 'all')}
-        >
-          <option value="all">Todos los pagos</option>
-          <option value="current">Al día 🟢</option>
-          <option value="owes_month">Debe el mes 🟡</option>
-          <option value="owes_previous">Debe anteriores 🔴</option>
-        </select>
       </div>
 
-      <p className="text-xs text-gray-500">{filtered.length} jugadores</p>
+      {/* Filtro por letra */}
+      <div className="flex flex-wrap gap-1">
+        <button
+          onClick={() => setFilter(() => setLetterFilter(null))}
+          className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+            !letterFilter ? 'bg-club-green text-white' : 'bg-white/10 text-gray-400 hover:bg-white/20'
+          }`}
+        >
+          Todos
+        </button>
+        {ALPHABET.map(letter => (
+          <button
+            key={letter}
+            onClick={() => setFilter(() => setLetterFilter(letterFilter === letter ? null : letter))}
+            className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+              letterFilter === letter ? 'bg-club-green text-white' : 'bg-white/10 text-gray-400 hover:bg-white/20'
+            }`}
+          >
+            {letter}
+          </button>
+        ))}
+      </div>
 
-      {/* Tabla */}
+      <p className="text-xs text-gray-500">
+        {filtered.length} jugadores
+        {filtered.length > PAGE_SIZE && ` · página ${safePage} de ${totalPages}`}
+      </p>
+
+      {/* Listado */}
       <div className="space-y-1">
-        {filtered.map(j => {
-          const pay = paymentMap[j.id]
+        {pageItems.map(j => {
+          const cfg = STATUS_CONFIG[j.status]
           return (
             <button
               key={j.id}
-              onClick={() => router.push(`/jugadores/${j.id}`)}
+              onClick={() => router.push(`/jugadores/${j.player_number}`)}
               className="w-full card flex items-center justify-between gap-3 text-left hover:border-club-green/40 transition-colors"
+              title={cfg?.label ?? j.status}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <span className="text-base shrink-0">{PAYMENT_DOT[pay] ?? '⚪'}</span>
+                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cfg?.dot ?? 'bg-gray-500'}`} />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-white truncate">{j.display_name}</p>
-                  <p className="text-xs text-gray-500 truncate">{j.email}</p>
+                  <p className="text-xs text-gray-500 truncate">{j.email || '—'}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 shrink-0 text-right">
-                <span className={`text-xs ${STATUS_CONFIG[j.status].cls}`}>
-                  {STATUS_CONFIG[j.status].label}
+              <div className="flex items-center gap-3 shrink-0">
+                <span className={`text-xs font-medium ${cfg?.text ?? 'text-gray-400'}`}>
+                  {cfg?.label ?? j.status}
                 </span>
                 {j.player_profiles && freqBadge(j.player_profiles.frequency)}
               </div>
@@ -158,6 +182,28 @@ export function JugadoresClient({ jugadores, paymentMap }: Props) {
         )}
       </div>
 
+      {/* Controles de paginación */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={safePage === 1}
+            className="btn-ghost text-sm px-3 py-1.5 disabled:opacity-30"
+          >
+            ←
+          </button>
+          <span className="text-sm text-gray-400">
+            Página {safePage} de {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={safePage === totalPages}
+            className="btn-ghost text-sm px-3 py-1.5 disabled:opacity-30"
+          >
+            →
+          </button>
+        </div>
+      )}
     </div>
   )
 }
