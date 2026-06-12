@@ -19,14 +19,17 @@ ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 INSERT INTO auth.users (
   id, instance_id, email, encrypted_password,
   email_confirmed_at, role, aud, created_at, updated_at,
-  raw_app_meta_data, raw_user_meta_data, is_super_admin
+  raw_app_meta_data, raw_user_meta_data, is_super_admin,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
+  email_change_token_current, phone_change, phone_change_token, reauthentication_token
 ) VALUES (
   'a1000000-0000-0000-0000-000000000001',
   '00000000-0000-0000-0000-000000000000',
   'admin@newbery.com',
   crypt('password123', gen_salt('bf')),
   NOW(), 'authenticated', 'authenticated', NOW(), NOW(),
-  '{"provider":"email","providers":["email"]}', '{}', false
+  '{"provider":"email","providers":["email"]}', '{}', false,
+  '', '', '', '', '', '', '', ''
 )
 ON CONFLICT (id) DO UPDATE SET
   encrypted_password = EXCLUDED.encrypted_password,

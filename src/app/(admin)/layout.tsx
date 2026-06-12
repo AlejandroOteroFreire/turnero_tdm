@@ -8,11 +8,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   if (!user) redirect('/login')
 
-  const { data: account } = await supabase
+  const { data: account, error: accountError } = await supabase
     .from('user_accounts')
     .select('id, display_name, roles, status, avatar_url')
     .eq('id', user.id)
     .single()
+
+  console.log('[admin layout] user.id:', user.id, 'account:', JSON.stringify(account), 'error:', JSON.stringify(accountError))
 
   if (!account || account.status === 'pending' || account.status === 'pre_registered') {
     redirect('/pendiente')
