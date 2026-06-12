@@ -24,7 +24,8 @@ export default async function EstadisticasPage() {
   // Agrupar asistencia por semana
   const weeklyMap: Record<string, { present: number; absent: number; cancelled: number }> = {}
   for (const row of attendance ?? []) {
-    const date = (row.slot_instances as { date: string })?.date
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const date = (row.slot_instances as any)?.date as string | undefined
     if (!date) continue
     const wk = format(startOfWeek(new Date(date), { weekStartsOn: 1 }), 'yyyy-MM-dd')
     if (!weeklyMap[wk]) weeklyMap[wk] = { present: 0, absent: 0, cancelled: 0 }

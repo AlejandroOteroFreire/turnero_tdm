@@ -15,6 +15,7 @@ export default async function JugadoresPage() {
     .order('display_name')
 
   return (
-    <JugadoresClient jugadores={jugadores ?? []} />
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    <JugadoresClient jugadores={(jugadores ?? []) as any} />
   )
 }

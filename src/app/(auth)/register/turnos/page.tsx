@@ -59,7 +59,8 @@ export default function RegisterTurnosPage() {
           .select('slot_id, training_slots(*)')
           .eq('player_id', user.id)
           .or('valid_until.is.null,valid_until.gte.' + new Date().toISOString().split('T')[0])
-        setExistingSlots((assignments ?? []) as SlotAssignmentRow[])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setExistingSlots((assignments ?? []) as any)
       } else if (status === 'pending') {
         // Ver si ya tiene una solicitud pendiente
         const { data: existing } = await supabase

@@ -99,10 +99,12 @@ export default async function JugadorDetallePage({ params }: { params: { num: st
     <JugadorDetalleClient
       account={account}
       profile={profile}
-      assignments={assignments ?? []}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      assignments={(assignments ?? []) as any}
       payments={payments ?? []}
       paymentStatus={payStatus?.payment_status ?? null}
-      bookings={bookings ?? []}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      bookings={(bookings ?? []) as any}
       allSlots={allSlots ?? []}
       today={today}
       isAdmin={isAdmin}

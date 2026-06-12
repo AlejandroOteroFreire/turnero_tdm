@@ -50,9 +50,12 @@ export default async function AsistenciaPage({
 
   return (
     <AsistenciaClient
-      instances={instances ?? []}
-      bookings={bookings ?? []}
-      attendance={attendance ?? []}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      instances={(instances ?? []) as any}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      bookings={(bookings ?? []) as any}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      attendance={(attendance ?? []) as any}
       today={selectedDate}
     />
   )

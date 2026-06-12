@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Shield } from '@/components/ui/Shield'
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams()
   const next = searchParams.get('next')
 
@@ -50,9 +50,76 @@ export default function LoginPage() {
   }
 
   return (
+    <div className="card space-y-4">
+      <h2 className="text-base font-semibold text-white">Iniciar sesión</h2>
+
+      {isExpired && !error && (
+        <div className="rounded-lg bg-yellow-900/30 border border-yellow-700/50 px-3 py-2 text-sm text-yellow-300">
+          Tu sesión expiró por inactividad. Ingresá nuevamente.
+        </div>
+      )}
+      {error && (
+        <div className="rounded-lg bg-red-900/30 border border-red-700/50 px-3 py-2 text-sm text-red-300">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleLogin} className="space-y-3">
+        <div>
+          <label className="label">Email</label>
+          <input
+            type="email"
+            className="input"
+            placeholder="tu@email.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+        </div>
+        <div>
+          <label className="label">Contraseña</label>
+          <input
+            type="password"
+            className="input"
+            placeholder="••••••••"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+          />
+        </div>
+        <button type="submit" disabled={loading} className="btn-primary w-full mt-1">
+          {loading ? 'Ingresando…' : 'Ingresar'}
+        </button>
+        <div className="text-right">
+          <Link href="/olvide-password" className="text-xs text-gray-500 hover:text-gray-300">
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
+      </form>
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-white/10" />
+        </div>
+        <div className="relative flex justify-center text-xs text-gray-500">
+          <span className="bg-white/5 px-2 rounded">o continuá con</span>
+        </div>
+      </div>
+
+      <button onClick={handleGoogle} className="btn-secondary w-full gap-2">
+        <GoogleIcon />
+        Google
+      </button>
+    </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
     <div className="min-h-dvh flex flex-col items-center justify-center px-4 py-8 bg-club-black">
       <div className="w-full max-w-sm space-y-6">
-        {/* Escudo */}
         <div className="flex flex-col items-center gap-3">
           <Shield size={72} />
           <div className="text-center">
@@ -61,69 +128,9 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="card space-y-4">
-          <h2 className="text-base font-semibold text-white">Iniciar sesión</h2>
-
-          {isExpired && !error && (
-            <div className="rounded-lg bg-yellow-900/30 border border-yellow-700/50 px-3 py-2 text-sm text-yellow-300">
-              Tu sesión expiró por inactividad. Ingresá nuevamente.
-            </div>
-          )}
-          {error && (
-            <div className="rounded-lg bg-red-900/30 border border-red-700/50 px-3 py-2 text-sm text-red-300">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-3">
-            <div>
-              <label className="label">Email</label>
-              <input
-                type="email"
-                className="input"
-                placeholder="tu@email.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-            </div>
-            <div>
-              <label className="label">Contraseña</label>
-              <input
-                type="password"
-                className="input"
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-            </div>
-            <button type="submit" disabled={loading} className="btn-primary w-full mt-1">
-              {loading ? 'Ingresando…' : 'Ingresar'}
-            </button>
-            <div className="text-right">
-              <Link href="/olvide-password" className="text-xs text-gray-500 hover:text-gray-300">
-                ¿Olvidaste tu contraseña?
-              </Link>
-            </div>
-          </form>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-white/10" />
-            </div>
-            <div className="relative flex justify-center text-xs text-gray-500">
-              <span className="bg-white/5 px-2 rounded">o continuá con</span>
-            </div>
-          </div>
-
-          <button onClick={handleGoogle} className="btn-secondary w-full gap-2">
-            <GoogleIcon />
-            Google
-          </button>
-        </div>
+        <Suspense fallback={<div className="card h-48 animate-pulse" />}>
+          <LoginForm />
+        </Suspense>
 
         <p className="text-center text-sm text-gray-500">
           ¿No tenés cuenta?{' '}

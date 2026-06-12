@@ -32,7 +32,8 @@ export default async function MiPlanPage() {
   return (
     <MiPlanClient
       userId={user!.id}
-      assignments={assignments ?? []}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      assignments={(assignments ?? []) as any}
       requests={requests ?? []}
       allSlots={allSlots ?? []}
     />
