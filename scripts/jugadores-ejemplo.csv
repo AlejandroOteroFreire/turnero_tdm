@@ -1,0 +1,51 @@
+dni,nombre_completo,telefono,email,frecuencia,turnos
+32145678,Agustín Ferreyra,+5491165432100,agustin.ferreyra@gmail.com,3,Lunes 16:30|Miércoles 16:30|Viernes 17:00
+28763412,Beatriz Sánchez,+5491144447890,bsanchez@hotmail.com,2,Martes 18:30|Jueves 18:30
+35421987,Carlos Mendoza,+5491155559876,cmendoza@yahoo.com.ar,1,Sábado 10:00
+40123456,Daniela Ruiz,+5491133338765,daniela.ruiz@gmail.com,2,Lunes 18:30|Miércoles 18:30
+27654321,Eduardo Gómez,,egomez@outlook.com,1,Martes 16:30
+33987654,Florencia Acosta,+5491122221234,flor.acosta@gmail.com,3,Lunes 20:15|Miércoles 20:15|Viernes 17:00
+29876543,Gabriel Torres,+5491177774321,gtorres@gmail.com,2,Martes 20:15|Jueves 20:15
+38654321,Hernán Ibáñez,+5491188882222,hernan.ibanez@gmail.com,1,Sábado 11:30
+31234567,Inés Romero,,ines.romero@gmail.com,2,Lunes 16:30|Jueves 16:30
+36789012,Javier Castillo,+5491199993333,jcastillo@hotmail.com,3,Martes 16:30|Jueves 16:30|Sábado 10:00
+25678901,Karina Molina,+5491111114444,karina.molina@gmail.com,1,Miércoles 18:30
+39012345,Leandro Díaz,+5491122225555,ldiaz@gmail.com,2,Lunes 18:30|Viernes 17:00
+34567890,Marcela Herrera,+5491133336666,marcela.herrera@yahoo.com,1,Sábado 10:00
+26789012,Nicolás Pereyra,+5491144447777,npereyra@gmail.com,3,Martes 18:30|Miércoles 18:30|Jueves 18:30
+41234567,Olivia Suárez,+5491155558888,olivia.suarez@gmail.com,2,Lunes 16:30|Miércoles 16:30
+30123789,Pablo Moreno,+5491166669999,pablo.moreno@gmail.com,1,Viernes 17:00
+37456123,Quirina Valdez,,quirina.valdez@gmail.com,2,Martes 20:15|Sábado 11:30
+24567890,Roberto Núñez,+5491177770001,rnunez@hotmail.com,3,Lunes 20:15|Jueves 20:15|Sábado 10:00
+42345678,Sofía Benítez,+5491188881112,sofia.benitez@gmail.com,1,Miércoles 16:30
+28901234,Tomás Aguilar,+5491199992223,tomas.aguilar@gmail.com,2,Lunes 16:30|Jueves 16:30
+35678901,Úrsula Fontana,+5491111113334,ufontana@gmail.com,1,Sábado 10:00
+31890123,Valentín Ríos,+5491122224445,valentin.rios@gmail.com,3,Martes 16:30|Miércoles 16:30|Viernes 17:00
+38123456,Walter Cabrera,+5491133335556,wcabrera@gmail.com,2,Jueves 18:30|Sábado 11:30
+27012345,Ximena Paredes,,ximena.paredes@gmail.com,1,Lunes 18:30
+40890123,Yamila Espinosa,+5491155556667,yamila.espinosa@gmail.com,2,Martes 18:30|Jueves 18:30
+33456789,Zacarías Quiroga,+5491166667778,zquiroga@gmail.com,1,Miércoles 20:15
+29567890,Adriana Villalba,+5491177778889,adriana.villalba@gmail.com,3,Lunes 16:30|Miércoles 16:30|Sábado 10:00
+36234567,Bernardo Palacios,+5491188889990,bpalacios@hotmail.com,2,Martes 16:30|Viernes 17:00
+41678901,Cecilia Medina,+5491199990001,cecilia.medina@gmail.com,1,Jueves 16:30
+30345678,Diego Ramírez,+5491111112222,diego.ramirez@gmail.com,2,Lunes 20:15|Miércoles 20:15
+37901234,Elena Cortez,+5491122223333,elena.cortez@gmail.com,3,Martes 20:15|Jueves 20:15|Sábado 11:30
+24789012,Facundo Leiva,+5491133334444,facundo.leiva@gmail.com,1,Viernes 17:00
+42567890,Graciela Ojeda,,graciela.ojeda@gmail.com,2,Lunes 18:30|Jueves 18:30
+28234567,Horacio Vega,+5491155555556,hvega@gmail.com,1,Sábado 10:00
+35012345,Ivana Montes,+5491166666667,ivana.montes@gmail.com,3,Martes 16:30|Miércoles 16:30|Jueves 16:30
+31789012,Jerónimo Salas,+5491177777778,jeronimo.salas@gmail.com,2,Lunes 16:30|Viernes 17:00
+38456789,Liliana Guerrero,+5491188888889,liliana.guerrero@gmail.com,1,Miércoles 18:30
+27123456,Maximiliano Rojas,+5491199999990,maximiliano.rojas@gmail.com,2,Martes 18:30|Sábado 11:30
+40567890,Natalia Flores,+5491111110001,natalia.flores@gmail.com,3,Lunes 20:15|Jueves 20:15|Viernes 17:00
+33234567,Omar Cáceres,+5491122221112,omar.caceres@hotmail.com,1,Martes 20:15
+29901234,Patricia Giménez,+5491133332223,pgimenez@gmail.com,2,Lunes 16:30|Miércoles 16:30
+37123456,Quintín Bravo,,quintin.bravo@gmail.com,1,Sábado 10:00
+42012345,Rodrigo Vera,+5491155553334,rodrigo.vera@gmail.com,3,Martes 16:30|Jueves 16:30|Sábado 11:30
+25890123,Susana Paz,+5491166664445,susana.paz@gmail.com,2,Miércoles 20:15|Viernes 17:00
+39345678,Teodoro Mansilla,+5491177775556,tmansilla@gmail.com,1,Lunes 18:30
+36012345,Uriel Campos,+5491188886667,uriel.campos@gmail.com,2,Martes 18:30|Jueves 18:30
+31456789,Verónica Arias,+5491199997778,veronica.arias@gmail.com,3,Lunes 16:30|Miércoles 16:30|Sábado 10:00
+28678901,William Sosa,+5491111118889,william.sosa@gmail.com,1,Miércoles 16:30
+43123456,Ximena Delgado,+5491122229990,ximena.delgado@gmail.com,2,Martes 20:15|Sábado 11:30
+26012345,Yolanda Ibarra,+5491133330001,yolanda.ibarra@gmail.com,1,Jueves 20:15

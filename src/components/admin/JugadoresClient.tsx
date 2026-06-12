@@ -80,6 +80,9 @@ export function JugadoresClient({ jugadores, slots }: Props) {
   const [saving,   setSaving]   = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
+  const [importing,    setImporting]    = useState(false)
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null)
+
   const filtered = jugadores.filter(j => {
     const matchSearch = !search ||
       j.display_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -121,6 +124,27 @@ export function JugadoresClient({ jugadores, slots }: Props) {
     }))
   }
 
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res  = await fetch('/api/admin/player-import', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) { setImportResult({ imported: 0, skipped: 0, errors: [data.error ?? 'Error desconocido'] }); return }
+      setImportResult(data)
+      router.refresh()
+    } catch {
+      setImportResult({ imported: 0, skipped: 0, errors: ['Error de conexión'] })
+    } finally {
+      setImporting(false)
+      e.target.value = ''
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setFormError(null)
@@ -153,6 +177,10 @@ export function JugadoresClient({ jugadores, slots }: Props) {
         <h1 className="text-xl font-bold text-white">Jugadores</h1>
         <div className="flex gap-2">
           <button onClick={() => setShowForm(true)} className="btn-primary text-xs">+ Nuevo jugador</button>
+          <label className={`btn-secondary text-xs cursor-pointer ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
+            {importing ? 'Importando…' : 'Importar CSV'}
+            <input type="file" accept=".csv" className="hidden" onChange={handleImport} disabled={importing} />
+          </label>
           <button onClick={exportCsv} className="btn-secondary text-xs">Exportar CSV</button>
         </div>
       </div>
@@ -254,6 +282,33 @@ export function JugadoresClient({ jugadores, slots }: Props) {
           <span className="text-sm text-gray-400">Página {safePage} de {totalPages}</span>
           <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
             className="btn-ghost text-sm px-3 py-1.5 disabled:opacity-30">→</button>
+        </div>
+      )}
+
+      {/* Modal resultado import */}
+      {importResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="card bg-gray-900 w-full max-w-md space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-white">Resultado del import</h2>
+              <button onClick={() => setImportResult(null)} className="text-gray-500 hover:text-white text-lg leading-none">✕</button>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-green-400">✓ {importResult.imported} jugadores importados</p>
+              {importResult.skipped > 0 && (
+                <p className="text-sm text-amber-400">⚠ {importResult.skipped} omitidos (DNI ya existente)</p>
+              )}
+              {importResult.errors.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-sm text-red-400">✕ {importResult.errors.length} errores:</p>
+                  <ul className="text-xs text-red-300 space-y-0.5 max-h-40 overflow-y-auto">
+                    {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <button onClick={() => setImportResult(null)} className="btn-primary w-full">Cerrar</button>
+          </div>
         </div>
       )}
 
