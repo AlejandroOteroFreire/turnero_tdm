@@ -11,7 +11,6 @@ export default async function JugadoresPage() {
         id, player_number, display_name, email, phone, dni, status, roles, wa_opt_in,
         player_profiles ( full_name, frequency, medical_cert, joined_at )
       `)
-      .filter('roles::text[]', 'cs', '{player}')
       .order('display_name'),
     // Jugadores sin cuenta (alta manual)
     supabase
@@ -47,8 +46,12 @@ export default async function JugadoresPage() {
     is_manual: true,
   }))
 
+  const soloJugadores = (jugadores ?? []).filter(j =>
+    Array.isArray(j.roles) && j.roles.includes('player')
+  )
+
   const todos = [
-    ...(jugadores ?? []).map(j => ({ ...j, is_manual: false })),
+    ...soloJugadores.map(j => ({ ...j, is_manual: false })),
     ...manualesNormalized,
   ].sort((a, b) => a.display_name.localeCompare(b.display_name))
 

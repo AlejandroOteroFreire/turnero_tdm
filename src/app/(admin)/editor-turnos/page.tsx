@@ -19,7 +19,6 @@ export default async function EditorTurnosPage() {
     supabase
       .from('user_accounts')
       .select('id, display_name, roles')
-      .filter('roles::text[]', 'cs', '{player}')
       .eq('status', 'active')
       .order('display_name'),
     // Asignaciones activas: valid_from <= hoy AND (valid_until IS NULL OR valid_until >= hoy)
@@ -30,10 +29,14 @@ export default async function EditorTurnosPage() {
       .or(`valid_until.is.null,valid_until.gte.${today}`),
   ])
 
+  const soloJugadores = (players ?? []).filter(p =>
+    Array.isArray(p.roles) && p.roles.includes('player')
+  )
+
   return (
     <EditorTurnosClient
       slots={slots ?? []}
-      players={players ?? []}
+      players={soloJugadores}
       assignments={assignments ?? []}
       today={today}
     />
