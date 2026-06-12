@@ -4,12 +4,12 @@ import { JugadoresClient } from '@/components/admin/JugadoresClient'
 export default async function JugadoresPage() {
   const supabase = createServiceClient()
 
-  const [{ data: jugadores, error: jugErr }, { data: manuales }, { data: slots }] = await Promise.all([
+  const [{ data: jugadores }, { data: manuales }, { data: slots }] = await Promise.all([
     supabase
       .from('user_accounts')
       .select(`
         id, player_number, display_name, email, phone, dni, status, roles, wa_opt_in,
-        player_profiles ( full_name, frequency, medical_cert, joined_at )
+        player_profiles!player_profiles_user_id_fkey ( full_name, frequency, medical_cert, joined_at )
       `)
       .order('display_name'),
     // Jugadores sin cuenta (alta manual)
@@ -46,12 +46,9 @@ export default async function JugadoresPage() {
     is_manual: true,
   }))
 
-  console.log('[jugadores] raw count:', jugadores?.length, '| error:', JSON.stringify(jugErr), '| SERVICE_ROLE_KEY set:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
-
   const soloJugadores = (jugadores ?? []).filter(j =>
     Array.isArray(j.roles) && j.roles.includes('player')
   )
-  console.log('[jugadores] after filter:', soloJugadores.length)
 
   const todos = [
     ...soloJugadores.map(j => ({ ...j, is_manual: false })),
