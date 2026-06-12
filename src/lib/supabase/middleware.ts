@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
+  console.log('[middleware] SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
   let supabaseResponse = NextResponse.next({ request })
 
   // IMPORTANTE: usar NEXT_PUBLIC_SUPABASE_URL como "supabaseUrl" para que el nombre
