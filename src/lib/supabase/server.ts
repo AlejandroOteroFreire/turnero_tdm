@@ -1,7 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-const PUBLIC_URL   = process.env.NEXT_PUBLIC_SUPABASE_URL!
+// SUPABASE_URL (sin NEXT_PUBLIC_) no se inlinea en el build — se lee en runtime
+const PUBLIC_URL   = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL!
 const INTERNAL_URL = process.env.SUPABASE_INTERNAL_URL ?? PUBLIC_URL
 
 function makeInternalFetch(): typeof fetch {
