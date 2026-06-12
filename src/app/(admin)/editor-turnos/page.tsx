@@ -19,7 +19,7 @@ export default async function EditorTurnosPage() {
     supabase
       .from('user_accounts')
       .select('id, display_name, roles')
-      .filter('roles', 'cs', '{player}')
+      .filter('roles::text[]', 'cs', '{player}')
       .eq('status', 'active')
       .order('display_name'),
     // Asignaciones activas: valid_from <= hoy AND (valid_until IS NULL OR valid_until >= hoy)
