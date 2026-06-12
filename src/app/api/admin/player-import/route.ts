@@ -46,80 +46,75 @@ export async function POST(req: NextRequest) {
 
   const text = await file.text()
   const rows = parseCSV(text)
-  console.log('[import] rows parsed:', rows.length, '| first:', JSON.stringify(rows[0]))
   if (!rows.length) return NextResponse.json({ error: 'El archivo está vacío o tiene formato incorrecto' }, { status: 400 })
 
   const service = createServiceClient()
 
-  // Cargar todos los slots para resolver labels → ids
-  const { data: slots } = await service
-    .from('training_slots')
-    .select('id, label')
-    .eq('is_active', true)
+  // Cargar slots y DNIs existentes en paralelo
+  const [{ data: slots }, { data: existingProfiles }] = await Promise.all([
+    service.from('training_slots').select('id, label').eq('is_active', true),
+    service.from('player_profiles').select('dni'),
+  ])
 
-  const slotByLabel = new Map((slots ?? []).map(s => [s.label?.trim(), s.id]))
+  const slotByLabel  = new Map((slots ?? []).map(s => [s.label?.trim(), s.id]))
+  const existingDNIs = new Set((existingProfiles ?? []).map(p => p.dni))
 
-  const today = new Date().toISOString().split('T')[0]
-  const results = { imported: 0, skipped: 0, errors: [] as string[] }
+  const today   = new Date().toISOString().split('T')[0]
+  const errors: string[] = []
+  let skipped = 0
 
-  for (const row of rows) {
-    const dni = row.dni?.trim()
+  // Separar filas válidas de inválidas/duplicadas
+  const toInsert = rows.filter(row => {
+    const dni    = row.dni?.trim()
     const nombre = row.nombre_completo?.trim()
-    if (!dni || !nombre) {
-      results.errors.push(`Fila sin DNI o nombre: ${JSON.stringify(row)}`)
-      continue
-    }
+    if (!dni || !nombre) { errors.push(`Fila sin DNI o nombre omitida`); return false }
+    if (existingDNIs.has(dni)) { skipped++; return false }
+    return true
+  })
 
-    // Verificar duplicado por DNI
-    const { data: existing } = await service
-      .from('player_profiles').select('id').eq('dni', dni).maybeSingle()
-    if (existing) {
-      console.log('[import] skip duplicate dni:', dni)
-      results.skipped++
-      continue
-    }
-
-    const parts = nombre.split(' ')
-    const first_name = parts[0] ?? ''
-    const last_name  = parts.slice(1).join(' ') || ''
-    const frecuencia = parseInt(row.frecuencia ?? '1', 10) || 1
-
-    const { data: profile, error } = await service
-      .from('player_profiles')
-      .insert({
-        full_name: nombre,
-        first_name,
-        last_name,
-        dni,
-        phone: row.telefono?.trim() || null,
-        email: row.email?.trim() || null,
-        frequency: frecuencia,
-      })
-      .select('id')
-      .single()
-
-    if (error || !profile) {
-      console.log('[import] insert error for', nombre, ':', JSON.stringify(error))
-      results.errors.push(`Error al crear ${nombre}: ${error?.message}`)
-      continue
-    }
-    console.log('[import] created profile:', nombre)
-
-    // Asignar turnos por label
-    const turnosStr = row.turnos?.trim()
-    if (turnosStr) {
-      const labels = turnosStr.split('|').map(l => l.trim())
-      const assignments = labels
-        .map(label => slotByLabel.get(label))
-        .filter(Boolean)
-        .map(slot_id => ({ slot_id, profile_id: profile.id, player_id: null, valid_from: today }))
-      if (assignments.length) {
-        await service.from('slot_assignments').insert(assignments)
-      }
-    }
-
-    results.imported++
+  if (!toInsert.length) {
+    return NextResponse.json({ imported: 0, skipped, errors })
   }
 
-  return NextResponse.json(results)
+  // Bulk insert profiles
+  const profileRows = toInsert.map(row => {
+    const nombre = row.nombre_completo.trim()
+    const parts  = nombre.split(' ')
+    return {
+      full_name:  nombre,
+      first_name: parts[0] ?? '',
+      last_name:  parts.slice(1).join(' ') || '',
+      dni:        row.dni.trim(),
+      phone:      row.telefono?.trim() || null,
+      email:      row.email?.trim()    || null,
+      frequency:  parseInt(row.frecuencia ?? '1', 10) || 1,
+    }
+  })
+
+  const { data: created, error: bulkError } = await service
+    .from('player_profiles')
+    .insert(profileRows)
+    .select('id, dni')
+
+  if (bulkError || !created) {
+    return NextResponse.json({ error: `Error al insertar perfiles: ${bulkError?.message}` }, { status: 500 })
+  }
+
+  // Mapear dni → profile id para asignar turnos
+  const profileByDni = new Map(created.map(p => [p.dni, p.id]))
+
+  const assignments = toInsert.flatMap(row => {
+    const profileId = profileByDni.get(row.dni.trim())
+    if (!profileId || !row.turnos?.trim()) return []
+    return row.turnos.split('|')
+      .map(l => slotByLabel.get(l.trim()))
+      .filter(Boolean)
+      .map(slot_id => ({ slot_id, profile_id: profileId, player_id: null, valid_from: today }))
+  })
+
+  if (assignments.length) {
+    await service.from('slot_assignments').insert(assignments)
+  }
+
+  return NextResponse.json({ imported: created.length, skipped, errors })
 }

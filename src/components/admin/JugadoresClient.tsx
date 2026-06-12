@@ -285,6 +285,19 @@ export function JugadoresClient({ jugadores, slots }: Props) {
         </div>
       )}
 
+      {/* Overlay importando */}
+      {importing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="card bg-gray-900 flex items-center gap-4 px-8 py-6">
+            <svg className="animate-spin h-6 w-6 text-club-green" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+            <span className="text-white text-sm font-medium">Importando jugadores…</span>
+          </div>
+        </div>
+      )}
+
       {/* Modal resultado import */}
       {importResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
