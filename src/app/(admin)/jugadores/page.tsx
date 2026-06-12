@@ -1,8 +1,8 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { JugadoresClient } from '@/components/admin/JugadoresClient'
 
 export default async function JugadoresPage() {
-  const supabase = createClient()
+  const supabase = createServiceClient()
 
   const [{ data: jugadores }, { data: manuales }, { data: slots }] = await Promise.all([
     supabase

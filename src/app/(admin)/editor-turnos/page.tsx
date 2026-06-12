@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { EditorTurnosClient } from '@/components/editor/EditorTurnosClient'
 import { format } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
@@ -6,7 +6,7 @@ import { toZonedTime } from 'date-fns-tz'
 const TZ = 'America/Argentina/Buenos_Aires'
 
 export default async function EditorTurnosPage() {
-  const supabase = createClient()
+  const supabase = createServiceClient()
   const today    = format(toZonedTime(new Date(), TZ), 'yyyy-MM-dd')
 
   const [{ data: slots }, { data: players }, { data: assignments }] = await Promise.all([

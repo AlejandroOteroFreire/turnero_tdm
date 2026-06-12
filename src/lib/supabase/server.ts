@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 // SUPABASE_URL (sin NEXT_PUBLIC_) no se inlinea en el build — se lee en runtime
@@ -42,20 +43,12 @@ export function createClient() {
   )
 }
 
-// Las políticas RLS ya permiten operaciones admin vía is_admin(). Usamos el JWT
-// del usuario autenticado (que sí es válido) en lugar del service_role key
-// (que tiene firma incorrecta para el JWT_SECRET actual del setup local).
+// Usa @supabase/supabase-js directamente (no @supabase/ssr) para garantizar
+// que la service role key se use siempre y RLS sea bypaseado completamente.
 export function createServiceClient() {
-  const cookieStore = cookies()
-  return createServerClient(
+  return createSupabaseClient(
     PUBLIC_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: { fetch: makeInternalFetch() },
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll() {},
-      },
-    }
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
   )
 }
