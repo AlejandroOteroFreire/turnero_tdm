@@ -12,16 +12,16 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- TIPOS ENUMERADOS
 -- ============================================================
 
-DO $$ BEGIN CREATE TYPE user_role         AS ENUM ('player', 'collaborator', 'admin');                                    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE account_status    AS ENUM ('active', 'pending', 'pre_registered', 'suspended');                   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE slot_day          AS ENUM ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday');   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE booking_status    AS ENUM ('confirmed', 'waitlisted', 'cancelled', 'cancelled_late', 'no_show');  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE instance_status   AS ENUM ('active', 'cancelled', 'holiday');                                     EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE offer_status      AS ENUM ('pending', 'accepted', 'rejected', 'expired');                         EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE payment_status    AS ENUM ('current', 'owes_month', 'owes_previous');                             EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE payment_type      AS ENUM ('monthly', 'drop_in', 'adjustment');                                   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE notification_channel AS ENUM ('whatsapp', 'whatsapp_group', 'web_push', 'email');                 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE attendance_status AS ENUM ('present', 'absent', 'cancelled', 'cancelled_late', 'no_show');        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+CREATE TYPE user_role            AS ENUM ('player', 'collaborator', 'admin');
+CREATE TYPE account_status       AS ENUM ('active', 'pending', 'pre_registered', 'suspended');
+CREATE TYPE slot_day             AS ENUM ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday');
+CREATE TYPE booking_status       AS ENUM ('confirmed', 'waitlisted', 'cancelled', 'cancelled_late', 'no_show');
+CREATE TYPE instance_status      AS ENUM ('active', 'cancelled', 'holiday');
+CREATE TYPE offer_status         AS ENUM ('pending', 'accepted', 'rejected', 'expired');
+CREATE TYPE payment_status       AS ENUM ('current', 'owes_month', 'owes_previous');
+CREATE TYPE payment_type         AS ENUM ('monthly', 'drop_in', 'adjustment');
+CREATE TYPE notification_channel AS ENUM ('whatsapp', 'whatsapp_group', 'web_push', 'email');
+CREATE TYPE attendance_status    AS ENUM ('present', 'absent', 'cancelled', 'cancelled_late', 'no_show');
 
 -- ============================================================
 -- TABLA: user_accounts
@@ -473,7 +473,7 @@ CREATE OR REPLACE FUNCTION cancel_booking(
     p_cancelled_by UUID,
     p_late BOOLEAN DEFAULT FALSE
 )
-RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+RETURNS VOID SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
     v_instance_id UUID;
     v_was_confirmed BOOLEAN;

@@ -3,14 +3,10 @@
 -- ============================================================
 
 -- 1. Nuevo enum booking_type
-DO $$ BEGIN
-  CREATE TYPE booking_type AS ENUM ('auto', 'manual_extra', 'manual_cancel_recovery');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+CREATE TYPE booking_type AS ENUM ('auto', 'manual_extra', 'manual_cancel_recovery');
 
 -- 2. Nuevo enum plan_change_status
-DO $$ BEGIN
-  CREATE TYPE plan_change_status AS ENUM ('pending', 'approved', 'rejected');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+CREATE TYPE plan_change_status AS ENUM ('pending', 'approved', 'rejected');
 
 -- 3. Agregar columna type a bookings (default manual_extra para no romper datos existentes)
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS type booking_type NOT NULL DEFAULT 'manual_extra';
