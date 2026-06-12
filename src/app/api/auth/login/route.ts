@@ -6,13 +6,8 @@ export async function POST(req: Request) {
   const { email, password } = await req.json()
   const cookieStore = cookies()
 
-  const resolvedUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
-  console.log('[login] SUPABASE_URL:', process.env.SUPABASE_URL)
-  console.log('[login] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-  console.log('[login] resolved:', resolvedUrl)
-
   const supabase = createServerClient(
-    resolvedUrl!,
+    (process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL)!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
