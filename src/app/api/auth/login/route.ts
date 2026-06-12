@@ -2,26 +2,14 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-const PUBLIC_URL   = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const INTERNAL_URL = process.env.SUPABASE_INTERNAL_URL ?? PUBLIC_URL
-
 export async function POST(req: Request) {
   const { email, password } = await req.json()
   const cookieStore = cookies()
 
-  // Auth goes server→Supabase (internal Docker URL), no browser CORS issue
   const supabase = createServerClient(
-    PUBLIC_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      global: {
-        fetch: (url, init) => {
-          const rewritten = typeof url === 'string'
-            ? url.replace(PUBLIC_URL, INTERNAL_URL)
-            : url
-          return fetch(rewritten, init)
-        },
-      },
       cookies: {
         getAll() { return cookieStore.getAll() },
         setAll(cookiesToSet) {
