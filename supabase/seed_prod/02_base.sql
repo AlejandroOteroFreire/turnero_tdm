@@ -50,7 +50,7 @@ INSERT INTO user_accounts (id, email, display_name, roles, status) VALUES (
   'a1000000-0000-0000-0000-000000000001',
   'admin@newbery.com',
   'Administrador',
-  ARRAY['admin','collaborator']::user_role[],
+  ARRAY['admin']::user_role[],
   'active'
 )
 ON CONFLICT (id) DO UPDATE SET

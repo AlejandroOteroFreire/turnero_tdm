@@ -11,7 +11,7 @@ export default async function JugadoresPage() {
         id, player_number, display_name, email, phone, dni, status, roles, wa_opt_in,
         player_profiles ( full_name, frequency, medical_cert, joined_at )
       `)
-      .contains('roles', ['player'])
+      .filter('roles', 'cs', '{player}')
       .order('display_name'),
     // Jugadores sin cuenta (alta manual)
     supabase

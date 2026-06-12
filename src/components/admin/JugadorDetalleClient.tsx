@@ -149,9 +149,10 @@ export function JugadorDetalleClient({ account, profile, assignments: initialAss
   const [roleMsg,    setRoleMsg]    = useState<string | null>(null)
 
   async function toggleRole(role: 'admin' | 'collaborator') {
+    const other = role === 'admin' ? 'collaborator' : 'admin'
     const next = roles.includes(role)
       ? roles.filter(r => r !== role)
-      : [...roles, role]
+      : [...roles.filter(r => r !== other), role]
     const final = next.includes('player') ? next : ['player', ...next]
     setSavingRole(true)
     setRoleMsg(null)
