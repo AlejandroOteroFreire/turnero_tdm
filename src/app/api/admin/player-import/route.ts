@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
 
   const text = await file.text()
   const rows = parseCSV(text)
+  console.log('[import] rows parsed:', rows.length, '| first:', JSON.stringify(rows[0]))
   if (!rows.length) return NextResponse.json({ error: 'El archivo está vacío o tiene formato incorrecto' }, { status: 400 })
 
   const service = createServiceClient()
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
     const { data: existing } = await service
       .from('player_profiles').select('id').eq('dni', dni).maybeSingle()
     if (existing) {
+      console.log('[import] skip duplicate dni:', dni)
       results.skipped++
       continue
     }
@@ -97,9 +99,11 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (error || !profile) {
+      console.log('[import] insert error for', nombre, ':', JSON.stringify(error))
       results.errors.push(`Error al crear ${nombre}: ${error?.message}`)
       continue
     }
+    console.log('[import] created profile:', nombre)
 
     // Asignar turnos por label
     const turnosStr = row.turnos?.trim()
