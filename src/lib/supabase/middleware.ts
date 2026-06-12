@@ -43,7 +43,13 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch (e) {
+    console.error('[middleware] getUser error:', e)
+  }
 
   const SESSION_MINUTES = 30
   const SESSION_MS      = SESSION_MINUTES * 60 * 1000
